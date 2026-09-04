@@ -1,0 +1,184 @@
+package com.aura.livewallpaper.service
+
+import android.content.Context
+import android.opengl.GLSurfaceView
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.service.wallpaper.WallpaperService
+import android.view.MotionEvent
+import android.view.SurfaceHolder
+import com.aura.livewallpaper.audio.AudioAnalyzer
+import com.aura.livewallpaper.audio.GenerativeAudioEngine
+import com.aura.livewallpaper.renderer.FractalRenderer
+import com.aura.livewallpaper.sensor.LightSensorManager
+import com.aura.livewallpaper.util.AuraPreferences
+
+/**
+ * Ana Live Wallpaper Service
+ * Tüm bileşenleri birleştirir: sensörler, render, ses
+ */
+class AuraWallpaperService : WallpaperService() {
+    
+    override fun onCreateEngine(): Engine {
+        return AuraEngine()
+    }
+    
+    inner class AuraEngine : Engine(), 
+        LightSensorManager.Listener,
+        AudioAnalyzer.Listener,
+        GenerativeAudioEngine.Listener {
+        
+        private lateinit var preferences: AuraPreferences
+        private lateinit var lightSensorManager: LightSensorManager
+        private lateinit var audioAnalyzer: AudioAnalyzer
+        private lateinit var generativeAudio: GenerativeAudioEngine
+        private lateinit var fractalRenderer: FractalRenderer
+        
+        private var glSurfaceView: GLSurfaceView? = null
+        private var isVisible = false
+        
+        override fun onCreate(surfaceHolder: SurfaceHolder?) {
+            super.onCreate(surfaceHolder)
+            
+            preferences = AuraPreferences(this@AuraWallpaperService)
+            lightSensorManager = LightSensorManager(this@AuraWallpaperService)
+            audioAnalyzer = AudioAnalyzer(this@AuraWallpaperService)
+            generativeAudio = GenerativeAudioEngine()
+            fractalRenderer = FractalRenderer(this@AuraWallpaperService, preferences)
+            
+            // Listener'ları bağla
+            lightSensorManager.setListener(this)
+            audioAnalyzer.setListener(this)
+            generativeAudio.setListener(this)
+            
+            setTouchEventsEnabled(true)
+        }
+        
+        override fun onDestroy() {
+            stopAll()
+            glSurfaceView?.onDestroy()
+            super.onDestroy()
+        }
+        
+        override fun onVisibilityChanged(visible: Boolean) {
+            isVisible = visible
+            
+            if (visible) {
+                startAll()
+            } else {
+                stopAll()
+            }
+        }
+        
+        override fun onSurfaceCreated(holder: SurfaceHolder?) {
+            super.onSurfaceCreated(holder)
+            
+            glSurfaceView = GLSurfaceView(this@AuraWallpaperService).apply {
+                setEGLContextClientVersion(2)
+                setRenderer(fractalRenderer)
+                renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+                
+                // FPS limiti ayarla
+                val fps = preferences.fpsLimit
+                val frameIntervalMs = 1000 / fps
+                
+                // Not: GLSurfaceView'de doğrudan FPS limiti yok, 
+                // ama RENDERMODE_WHEN_DIRTY kullanarak manuel kontrol edilebilir
+                // MVP için CONTINUOUS_MODE kullanıyoruz, pil tasarrufu modunda WHEN_DIRTY'a geçilebilir
+            }
+            
+            holder?.setFormat(android.graphics.PixelFormat.RGBA_8888)
+        }
+        
+        override fun onSurfaceDestroyed(holder: SurfaceHolder?) {
+            glSurfaceView?.onDestroy()
+            glSurfaceView = null
+            super.onSurfaceDestroyed(holder)
+        }
+        
+        override fun onTouchEvent(event: MotionEvent?): Boolean {
+            event?.let {
+                fractalRenderer.handleTouchEvent(it)
+                
+                // Dokunma anında ses tetikle ve haptic feedback ver
+                if (it.action == MotionEvent.ACTION_DOWN) {
+                    if (!preferences.silentMode) {
+                        generativeAudio.triggerNote()
+                    }
+                    triggerHapticFeedback()
+                }
+            }
+            return true
+        }
+        
+        private fun startAll() {
+            // Işık sensörünü başlat (her zaman açık olabilir, düşük pil)
+            if (lightSensorManager.isAvailable) {
+                lightSensorManager.start()
+            }
+            
+            // Ses analizini başlat (sadece sessiz mod değilse ve izin varsa)
+            if (!preferences.silentMode && audioAnalyzer.hasPermission) {
+                audioAnalyzer.start()
+            }
+            
+            // Ses motorunu başlat (sadece sessiz mod değilse)
+            if (!preferences.silentMode) {
+                generativeAudio.start()
+            }
+            
+            // Render'ı devam ettir
+            glSurfaceView?.onResume()
+        }
+        
+        private fun stopAll() {
+            lightSensorManager.stop()
+            audioAnalyzer.stop()
+            generativeAudio.stop()
+            glSurfaceView?.onPause()
+        }
+        
+        // LightSensorManager.Listener
+        override fun onLightLevelChanged(lux: Float) {
+            val sensitivity = preferences.lightSensitivity
+            val adjustedLux = lux * sensitivity
+            fractalRenderer.setLightLevel(adjustedLux)
+            
+            // Işık seviyesi ses filtresini de etkiler
+            val filterCutoff = 0.3f + (lux / 10000f) * 0.7f
+            generativeAudio.setFilterCutoff(filterCutoff)
+        }
+        
+        // AudioAnalyzer.Listener
+        override fun onAudioEnergyChanged(energy: Float, rms: Float) {
+            fractalRenderer.setAudioEnergy(energy)
+        }
+        
+        // GenerativeAudioEngine.Listener
+        override fun onNotePlayed(frequency: Double) {
+            // İsteğe bağlı: her nota çaldığında hafif haptic feedback
+            // (şimdilik sadece touch'ta feedback veriyoruz)
+        }
+        
+        private fun triggerHapticFeedback() {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(VIBRATOR_SERVICE) as Vibrator
+            }
+            
+            val vibrationEffect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
+            } else {
+                @Suppress("DEPRECATION")
+                VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
+            }
+            
+            vibrator.vibrate(vibrationEffect)
+        }
+    }
+}

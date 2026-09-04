@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Aura color palettes -->
+    <color name="aura_ocean_dark">#0a1628</color>
+    <color name="aura_ocean_mid">#1a4f7a</color>
+    <color name="aura_ocean_light">#4a90d9</color>
+    
+    <color name="aura_sunset_dark">#2d1b2e</color>
+    <color name="aura_sunset_mid">#b85c38</color>
+    <color name="aura_sunset_light">#f4a460</color>
+    
+    <color name="aura_forest_dark">#0f281e</color>
+    <color name="aura_forest_mid">#2d6a4f</color>
+    <color name="aura_forest_light">#52b788</color>
+    
+    <color name="aura_night_dark">#1a0f2e</color>
+    <color name="aura_night_mid">#4a2d7a</color>
+    <color name="aura_night_light">#9b72cf</color>
+    
+    <color name="aura_amber_dark">#2e1f0f</color>
+    <color name="aura_amber_mid">#b87c38</color>
+    <color name="aura_amber_light">#f4c460</color>
+</resources>

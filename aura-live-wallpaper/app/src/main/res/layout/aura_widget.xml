@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aura Widget Layout - Hızlı kontrol widget'ı -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Başlık -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/aura_widget_title"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:gravity="center"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Palet Butonları (Grid) -->
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="4"
+        android:rowCount="2"
+        android:alignmentMode="alignMargins">
+
+        <!-- Sunrise -->
+        <ImageButton
+            android:id="@+id/btn_sunrise"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_sunrise"
+            android:contentDescription="Sunrise Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Ocean -->
+        <ImageButton
+            android:id="@+id/btn_ocean"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_ocean"
+            android:contentDescription="Ocean Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Sunset -->
+        <ImageButton
+            android:id="@+id/btn_sunset"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_sunset"
+            android:contentDescription="Sunset Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Cosmic -->
+        <ImageButton
+            android:id="@+id/btn_cosmic"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_cosmic"
+            android:contentDescription="Cosmic Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Forest -->
+        <ImageButton
+            android:id="@+id/btn_forest"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_forest"
+            android:contentDescription="Forest Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Fire -->
+        <ImageButton
+            android:id="@+id/btn_fire"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_fire"
+            android:contentDescription="Fire Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Neon -->
+        <ImageButton
+            android:id="@+id/btn_neon"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_neon"
+            android:contentDescription="Neon Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+
+        <!-- Monochrome -->
+        <ImageButton
+            android:id="@+id/btn_monochrome"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:src="@drawable/ic_palette_monochrome"
+            android:contentDescription="Monochrome Palette"
+            android:scaleType="fitCenter"
+            android:background="@drawable/palette_button_bg"/>
+    </GridLayout>
+
+    <!-- Ses ve Ayarlar Butonları -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp"
+        android:weightSum="2">
+
+        <!-- Audio Toggle -->
+        <ImageButton
+            android:id="@+id/btn_audio"
+            android:layout_width="0dp"
+            android:layout_height="45dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:src="@drawable/ic_audio_toggle"
+            android:contentDescription="Toggle Audio"
+            android:scaleType="fitCenter"
+            android:background="@drawable/action_button_bg"/>
+
+        <!-- Settings -->
+        <ImageButton
+            android:id="@+id/btn_settings"
+            android:layout_width="0dp"
+            android:layout_height="45dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:src="@drawable/ic_settings"
+            android:contentDescription="Open Settings"
+            android:scaleType="fitCenter"
+            android:background="@drawable/action_button_bg"/>
+    </LinearLayout>
+
+    <!-- Pil Durumu (Opsiyonel) -->
+    <TextView
+        android:id="@+id/tv_battery_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="11sp"
+        android:textColor="#AAAAAA"
+        android:gravity="center"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout>

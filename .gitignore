@@ -4,26 +4,44 @@
 *.o
 *.obj
 *.out
-build/
+*.so
+*.a
+*.dll
+*.exe
+
 # Dependencies
 node_modules/
-venv/
-.venv/
 __pycache__/
 .mypy_cache/
 .pytest_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Build directories
+dist/
+build/
+target/
 .gradle/
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-# Environment
+
+# Virtual environments
+.venv/
+venv/
 .env
 .env.local
 *.env.*
-# Editors
+
+# Editors and IDEs
 .vscode/
 .idea/
-Thumbs.db
+*.swp
+*.swo
+*.tmp
+
+# System files
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
 ```

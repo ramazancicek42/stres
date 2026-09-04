@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aura Widget Info - Widget metadata ve konfigürasyonu -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="180dp"
+    android:updatePeriodMillis="1800000" <!-- 30 dakika -->
+    android:previewImage="@drawable/widget_preview"
+    android:initialLayout="@layout/aura_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:initialKeyguardLayout="@layout/aura_widget"
+    android:description="@string/aura_widget_description">
+</appwidget-provider>

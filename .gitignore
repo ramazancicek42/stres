@@ -1,0 +1,26 @@
+```
+# Android/Gradle specific
+*.apk
+*.aar
+*.jar
+*.class
+build/
+.gradle/
+local.properties
+*.iml
+*.iws
+.externalNativeBuild
+.cxx
+captures/
+.nativetools/
+
+# Kotlin
+*.kotlin_metadata
+
+# General
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+```

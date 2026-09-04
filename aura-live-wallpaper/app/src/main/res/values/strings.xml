@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aura Live Wallpaper</string>
+    <string name="wallpaper_name">Aura Meditation</string>
+    <string name="settings_title">Aura Ayarları</string>
+    <string name="description">Sensör-duyarlı fraktal meditasyon duvar kağıdı</string>
+    
+    <!-- Settings strings -->
+    <string name="setting_light_sensitivity">Işık Hassasiyeti</string>
+    <string name="setting_audio_sensitivity">Ses Hassasiyeti</string>
+    <string name="setting_silent_mode">Sessiz Mod</string>
+    <string name="setting_power_saver">Pil Tasarrufu</string>
+    <string name="setting_color_palette">Renk Paleti</string>
+    <string name="setting_fps_limit">FPS Sınırı</string>
+    
+    <string-array name="color_palettes">
+        <item>Okyanus Mavisi</item>
+        <item>Gün Batımı</item>
+        <item>Orman Yeşili</item>
+        <item>Mor Gece</item>
+        <item>Sıcak Amber</item>
+    </string-array>
+    
+    <string-array name="fps_options">
+        <item>30 FPS</item>
+        <item>60 FPS</item>
+        <item>15 FPS (Pil Tasarrufu)</item>
+    </string-array>
+</resources>

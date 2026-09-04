@@ -13,6 +13,9 @@
         android:name="android.software.live_wallpaper"
         android:required="true" />
 
+    <!-- Quick Settings Tile için -->
+    <uses-permission android:name="android.permission.BIND_QUICK_SETTINGS_TILE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -31,7 +34,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.service.wallpaper"
-                android:resource="@xml/wallpaper_info" />
+                android:resource="@xml/wallpaper" />
         </service>
 
         <!-- Ayarlar Aktivitesi -->
@@ -44,6 +47,42 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+
+        <!-- Widget Provider -->
+        <receiver
+            android:name=".widget.AuraWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.aura.livewallpaper.ACTION_FREEZE" />
+                <action android:name="com.aura.livewallpaper.ACTION_NEXT_PALETTE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_aura_info" />
+        </receiver>
+
+        <!-- Komut Receiver -->
+        <receiver
+            android:name=".service.AuraCommandReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.aura.livewallpaper.ACTION_TOGGLE_FREEZE" />
+                <action android:name="com.aura.livewallpaper.ACTION_NEXT_PALETTE_CHANGE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Settings Tile -->
+        <service
+            android:name=".quicksettings.AuraTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_foreground"
+            android:label="AURA Freeze"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
     </application>
 

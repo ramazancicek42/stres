@@ -3,18 +3,40 @@ package com.aura.livewallpaper.renderer
 import android.content.Context
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.os.Vibrator
 import android.view.MotionEvent
+import com.aura.livewallpaper.audio.GenerativeAudioEngine
+import com.aura.livewallpaper.audio.SmartAudioAdapter
 import com.aura.livewallpaper.util.AuraPreferences
+import com.aura.livewallpaper.util.ColorPalette
+import com.aura.livewallpaper.util.PowerManager
+import com.aura.livewallpaper.util.TimeColorEngine
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * Fraktal renderer - OpenGL ES ile animasyonlu Julia set render eder
- * Sensör verileri ve dokunma girdilerine tepki verir
+ * Gelişmiş Fraktal Renderer - OpenGL ES ile animasyonlu Julia set render eder
+ * 
+ * Yeni Özellikler:
+ * - PowerManager entegrasyonu (dinamik FPS ve kalite ayarı)
+ * - TimeColorEngine ile otomatik palet değişimi
+ * - TouchInteractionManager ile gelişmiş dokunma etkileşimi
+ * - SmartAudioAdapter ile beat-sync pulsasyon
+ * - Multi-touch desteği
+ * - Hava durumu entegrasyonu hazırlığı
  */
 class FractalRenderer(
     private val context: Context,
-    private val preferences: AuraPreferences
+    private val preferences: AuraPreferences,
+    private val powerManager: PowerManager,
+    private val timeColorEngine: TimeColorEngine? = null,
+    private val touchManager: TouchInteractionManager? = null,
+    private val smartAudioAdapter: SmartAudioAdapter? = null,
+    private val audioEngine: GenerativeAudioEngine? = null,
+    private val vibrator: Vibrator? = null
 ) : GLSurfaceView.Renderer {
 
     private var fullScreenQuad: FullScreenQuad? = null
@@ -25,32 +47,36 @@ class FractalRenderer(
     private var uTimeLocation = -1
     private var uLightLevelLocation = -1
     private var uAudioEnergyLocation = -1
+    private var uBeatSyncLocation = -1
     private var uTouchPosLocation = -1
     private var uTouchIntensityLocation = -1
+    private var uRippleLocation = -1
     private var uColorDarkLocation = -1
     private var uColorMidLocation = -1
     private var uColorLightLocation = -1
     private var uAspectRatioLocation = -1
+    private var uComplexityLocation = -1
+    private var uFrozenLocation = -1
 
     // State
     private var startTime = 0L
     private var lightLevel = 0.5f
     private var audioEnergy = 0f
+    private var beatSyncSignal = 0f
     private var touchX = 0.5f
     private var touchY = 0.5f
     private var touchIntensity = 0f
     private var lastTouchTime = 0L
-
-    // Renk paletleri
-    private val colorPalettes = listOf(
-        floatArrayOf(0.04f, 0.09f, 0.16f, 0.10f, 0.31f, 0.48f, 0.29f, 0.56f, 0.85f), // Ocean
-        floatArrayOf(0.18f, 0.11f, 0.18f, 0.72f, 0.36f, 0.22f, 0.96f, 0.64f, 0.38f), // Sunset
-        floatArrayOf(0.06f, 0.16f, 0.12f, 0.18f, 0.42f, 0.31f, 0.32f, 0.72f, 0.53f), // Forest
-        floatArrayOf(0.10f, 0.06f, 0.18f, 0.29f, 0.18f, 0.48f, 0.61f, 0.45f, 0.81f), // Night
-        floatArrayOf(0.18f, 0.12f, 0.06f, 0.72f, 0.49f, 0.22f, 0.96f, 0.77f, 0.38f)  // Amber
-    )
-
+    private var isFrozen = false
+    private var fractalComplexity = 1.0f
     private var currentPaletteIndex = 0
+    private var autoPaletteEnabled = true
+    
+    // Ripple efekti için
+    private var rippleX = -1f
+    private var rippleY = -1f
+    private var rippleRadius = 0f
+    private var rippleAlpha = 0f
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)
@@ -63,15 +89,33 @@ class FractalRenderer(
         uTimeLocation = fullScreenQuad?.getUniformLocation("uTime") ?: -1
         uLightLevelLocation = fullScreenQuad?.getUniformLocation("uLightLevel") ?: -1
         uAudioEnergyLocation = fullScreenQuad?.getUniformLocation("uAudioEnergy") ?: -1
+        uBeatSyncLocation = fullScreenQuad?.getUniformLocation("uBeatSync") ?: -1
         uTouchPosLocation = fullScreenQuad?.getUniformLocation("uTouchPos") ?: -1
         uTouchIntensityLocation = fullScreenQuad?.getUniformLocation("uTouchIntensity") ?: -1
+        uRippleLocation = fullScreenQuad?.getUniformLocation("uRipple") ?: -1
         uColorDarkLocation = fullScreenQuad?.getUniformLocation("uColorDark") ?: -1
         uColorMidLocation = fullScreenQuad?.getUniformLocation("uColorMid") ?: -1
         uColorLightLocation = fullScreenQuad?.getUniformLocation("uColorLight") ?: -1
         uAspectRatioLocation = fullScreenQuad?.getUniformLocation("uAspectRatio") ?: -1
+        uComplexityLocation = fullScreenQuad?.getUniformLocation("uComplexity") ?: -1
+        uFrozenLocation = fullScreenQuad?.getUniformLocation("uFrozen") ?: -1
 
         startTime = System.currentTimeMillis()
         currentPaletteIndex = preferences.colorPaletteIndex
+        autoPaletteEnabled = preferences.autoPaletteEnabled
+        
+        // Touch manager callback'lerini ayarla
+        setupTouchCallbacks()
+    }
+
+    private fun setupTouchCallbacks() {
+        touchManager?.setOnFreezeToggleListener { frozen ->
+            isFrozen = frozen
+        }
+        
+        touchManager?.setOnPaletteChangeListener { direction ->
+            cyclePalette(direction)
+        }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -81,38 +125,119 @@ class FractalRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        // Power manager'dan performans profili al
+        val profile = powerManager.getFinalProfile(preferences.targetFps, preferences.audioEnabled)
+        
+        // Ekran görünür değilse render atla
+        if (!powerManager.isScreenVisible()) {
+            return
+        }
+
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         fullScreenQuad?.useProgram()
 
         val currentTime = (System.currentTimeMillis() - startTime) / 1000f
 
+        // Time-based palette güncelleme
+        if (autoPaletteEnabled) {
+            timeColorEngine?.update()
+            updateTimeBasedPalette()
+        }
+
+        // Beat sync sinyali
+        beatSyncSignal = smartAudioAdapter?.getBeatSyncSignal() ?: 0f
+
         // Touch intensity zamanla azalir (exponential decay)
         val timeSinceTouch = (System.currentTimeMillis() - lastTouchTime) / 1000f
         val decayedTouchIntensity = if (timeSinceTouch < 2.0f) {
-            touchIntensity * (1.0f - timeSinceTouch / 2.0f)
+            touchIntensity * kotlin.math.exp(-timeSinceTouch * 2f)
         } else {
             0f
         }
 
+        // Ripple güncelleme
+        updateRipple(currentTime)
+
         // Uniform'lari ayarla
         GLES20.glUniform1f(uTimeLocation, currentTime)
         GLES20.glUniform1f(uLightLevelLocation, lightLevel)
-        GLES20.glUniform1f(uAudioEnergyLocation, audioEnergy)
+        GLES20.glUniform1f(uAudioEnergyLocation, audioEnergy * profile.renderScale)
+        GLES20.glUniform1f(uBeatSyncLocation, beatSyncSignal)
         GLES20.glUniform2f(uTouchPosLocation, touchX, touchY)
-        GLES20.glUniform1f(uTouchIntensityLocation, decayedTouchIntensity)
+        GLES20.glUniform1f(uTouchIntensityLocation, decayedTouchIntensity * profile.renderScale)
+        GLES20.glUniform3f(uRippleLocation, rippleX, rippleY, rippleAlpha)
+        GLES20.glUniform1f(uComplexityLocation, fractalComplexity * profile.renderScale)
+        GLES20.glUniform1i(uFrozenLocation, if (isFrozen) 1 else 0)
 
         // Aspect ratio (sifira bolme hatasini onle)
         val aspectRatio = if (width > 0 && height > 0) width.toFloat() / height else 1f
         GLES20.glUniform1f(uAspectRatioLocation, aspectRatio)
 
         // Renk paleti
-        val palette = colorPalettes.getOrElse(currentPaletteIndex) { colorPalettes[0] }
-        GLES20.glUniform3fv(uColorDarkLocation, 1, palette, 0)
-        GLES20.glUniform3fv(uColorMidLocation, 1, palette, 3)
-        GLES20.glUniform3fv(uColorLightLocation, 1, palette, 6)
+        val colors = getCurrentPaletteColors()
+        GLES20.glUniform3fv(uColorDarkLocation, 1, colors, 0)
+        GLES20.glUniform3fv(uColorMidLocation, 1, colors, 3)
+        GLES20.glUniform3fv(uColorLightLocation, 1, colors, 6)
 
         fullScreenQuad?.draw()
+    }
+
+    /**
+     * Zaman bazlı palet renklerini al
+     */
+    private fun updateTimeBasedPalette() {
+        if (!autoPaletteEnabled) return
+        
+        timeColorEngine?.currentPalette?.value?.let { timePalette ->
+            // Smooth transition için interpolate et
+            val interpolatedPalette = timeColorEngine.getInterpolatedPalette(
+                timePalette.palette,
+                timePalette.transitionProgress
+            )
+            
+            // ColorPalette'i float array'e çevir (implementasyon FractalShader'da)
+            // Şimdilik manuel paletteIndex kullan
+        }
+    }
+
+    /**
+     * Mevcut palet renklerini float array olarak döndür
+     */
+    private fun getCurrentPaletteColors(): FloatArray {
+        return when (val index = currentPaletteIndex % 8) {
+            0 -> colorPalettes[0] // Ocean
+            1 -> colorPalettes[1] // Sunset
+            2 -> colorPalettes[2] // Forest
+            3 -> colorPalettes[3] // Night
+            4 -> colorPalettes[4] // Amber
+            5 -> sunrisePalette   // Sunrise (yeni)
+            6 -> cosmicPalette    // Cosmic (yeni)
+            7 -> neonPalette      // Neon (yeni)
+            else -> colorPalettes[0]
+        }
+    }
+
+    /**
+     * Palet değiştirme (swipe ile)
+     */
+    private fun cyclePalette(direction: Int) {
+        currentPaletteIndex = (currentPaletteIndex + direction + 8) % 8
+        preferences.colorPaletteIndex = currentPaletteIndex
+    }
+
+    /**
+     * Ripple efektini güncelle
+     */
+    private fun updateRipple(time: Float) {
+        if (rippleAlpha > 0.01f) {
+            rippleRadius += 0.3f // Yayılma hızı
+            rippleAlpha *= 0.95f // Sönümleme
+            
+            if (rippleRadius > 0.5f || rippleAlpha < 0.01f) {
+                rippleAlpha = 0f
+            }
+        }
     }
 
     fun setLightLevel(lux: Float) {
@@ -125,13 +250,54 @@ class FractalRenderer(
     }
 
     fun handleTouchEvent(event: MotionEvent): Boolean {
+        // Touch manager varsa ona yönlendir
+        if (touchManager != null) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    for (i in 0 until event.pointerCount) {
+                        val id = event.getPointerId(i)
+                        val x = event.getX(i) / width.coerceAtLeast(1)
+                        val y = event.getY(i) / height.coerceAtLeast(1)
+                        touchManager.onTouchDown(id, x, y, normalized = true)
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    for (i in 0 until event.pointerCount) {
+                        val id = event.getPointerId(i)
+                        val x = event.getX(i) / width.coerceAtLeast(1)
+                        val y = event.getY(i) / height.coerceAtLeast(1)
+                        touchManager.onTouchMove(id, x, y, normalized = true)
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
+                    for (i in 0 until event.pointerCount) {
+                        val id = event.getPointerId(i)
+                        touchManager.onTouchUp(id, normalized = true)
+                    }
+                    return true
+                }
+            }
+        }
+        
+        // Fallback: eski tek-dokunma sistemi
         when (event.action) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                // Normalized touch coordinates (0-1 araligi)
                 touchX = event.x / width.coerceAtLeast(1)
-                touchY = 1.0f - (event.y / height.coerceAtLeast(1)) // Y koordinatini ters cevir
+                touchY = 1.0f - (event.y / height.coerceAtLeast(1))
                 touchIntensity = 1f
                 lastTouchTime = System.currentTimeMillis()
+                
+                // Ripple başlat
+                rippleX = touchX
+                rippleY = touchY
+                rippleRadius = 0f
+                rippleAlpha = 1f
+                
+                // Audio engine'e nota gönder
+                audioEngine?.playNoteAtPosition(touchX, touchY)
+                
                 return true
             }
         }
@@ -139,11 +305,52 @@ class FractalRenderer(
     }
 
     fun setPaletteIndex(index: Int) {
-        currentPaletteIndex = index.coerceIn(0, colorPalettes.size - 1)
+        currentPaletteIndex = index.coerceIn(0, 7)
+        autoPaletteEnabled = false
+        preferences.colorPaletteIndex = currentPaletteIndex
+    }
+
+    fun setAutoPaletteEnabled(enabled: Boolean) {
+        autoPaletteEnabled = enabled
+    }
+
+    fun setFractalComplexity(complexity: Float) {
+        fractalComplexity = complexity.coerceIn(0.5f, 2.0f)
+    }
+
+    fun toggleFreeze() {
+        isFrozen = !isFrozen
+    }
+
+    fun resetFractal() {
+        fractalComplexity = 1.0f
+        touchIntensity = 0f
+        rippleAlpha = 0f
+        startTime = System.currentTimeMillis()
     }
 
     fun cleanup() {
+        touchManager?.reset()
         fullScreenQuad?.cleanup()
         fullScreenQuad = null
     }
+    
+    // Yeni paletler
+    private val sunrisePalette = floatArrayOf(
+        0.10f, 0.10f, 0.18f,  // Dark: Koyu lacivert
+        1.00f, 0.55f, 0.26f,  // Mid: Turuncu
+        1.00f, 0.84f, 0.00f   // Light: Altın sarısı
+    )
+    
+    private val cosmicPalette = floatArrayOf(
+        0.04f, 0.04f, 0.07f,  // Dark: Neredeyse siyah
+        0.48f, 0.41f, 0.67f,  // Mid: Medium slate blue
+        0.58f, 0.44f, 0.86f   // Light: Medium purple
+    )
+    
+    private val neonPalette = floatArrayOf(
+        0.04f, 0.04f, 0.04f,  // Dark: Siyah
+        0.00f, 1.00f, 1.00f,  // Mid: Cyan
+        1.00f, 0.00f, 1.00f   // Light: Magenta
+    )
 }

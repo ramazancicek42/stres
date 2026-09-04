@@ -46,7 +46,28 @@ class AuraWallpaperService : WallpaperService() {
             lightSensorManager = LightSensorManager(this@AuraWallpaperService)
             audioAnalyzer = AudioAnalyzer(this@AuraWallpaperService)
             generativeAudio = GenerativeAudioEngine()
-            fractalRenderer = FractalRenderer(this@AuraWallpaperService, preferences)
+            
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(VIBRATOR_SERVICE) as Vibrator
+            }
+            
+            val powerManager = com.aura.livewallpaper.util.PowerManager(this@AuraWallpaperService)
+            val timeColorEngine = com.aura.livewallpaper.util.TimeColorEngine(this@AuraWallpaperService)
+            val touchManager = com.aura.livewallpaper.renderer.TouchInteractionManager(vibrator, generativeAudio)
+            
+            fractalRenderer = FractalRenderer(
+                context = this@AuraWallpaperService,
+                preferences = preferences,
+                powerManager = powerManager,
+                timeColorEngine = timeColorEngine,
+                touchManager = touchManager,
+                audioEngine = generativeAudio,
+                vibrator = vibrator
+            )
             
             // Listener'ları bağla
             lightSensorManager.setListener(this)
@@ -58,7 +79,6 @@ class AuraWallpaperService : WallpaperService() {
         
         override fun onDestroy() {
             stopAll()
-            glSurfaceView?.onDestroy()
             super.onDestroy()
         }
         
@@ -93,16 +113,15 @@ class AuraWallpaperService : WallpaperService() {
         }
         
         override fun onSurfaceDestroyed(holder: SurfaceHolder?) {
-            glSurfaceView?.onDestroy()
+            glSurfaceView?.onPause()
             glSurfaceView = null
             super.onSurfaceDestroyed(holder)
         }
         
-        override fun onTouchEvent(event: MotionEvent?): Boolean {
+        override fun onTouchEvent(event: MotionEvent?) {
             event?.let {
                 fractalRenderer.handleTouchEvent(it)
                 
-                // Dokunma anında ses tetikle ve haptic feedback ver
                 if (it.action == MotionEvent.ACTION_DOWN) {
                     if (!preferences.silentMode) {
                         generativeAudio.triggerNote()
@@ -110,7 +129,6 @@ class AuraWallpaperService : WallpaperService() {
                     triggerHapticFeedback()
                 }
             }
-            return true
         }
         
         private fun startAll() {

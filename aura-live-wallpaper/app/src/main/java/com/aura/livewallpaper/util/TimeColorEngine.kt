@@ -90,13 +90,7 @@ class TimeColorEngine(private val context: Context) {
     fun getInterpolatedPalette(nextPalette: ColorPalette, progress: Float): ColorPalette {
         val current = _currentPalette.value.palette
         
-        return ColorPalette(
-            name = "${current.name}_to_${nextPalette.name}",
-            primary = interpolateColor(current.primary, nextPalette.primary, progress),
-            secondary = interpolateColor(current.secondary, nextPalette.secondary, progress),
-            accent = interpolateColor(current.accent, nextPalette.accent, progress),
-            background = interpolateColor(current.background, nextPalette.background, progress)
-        )
+        return ColorPalette.valueOf(current.paletteName)
     }
     
     private fun interpolateColor(color1: Long, color2: Long, progress: Float): Long {
@@ -121,14 +115,23 @@ class TimeColorEngine(private val context: Context) {
     /**
      * Kullanıcı manuel palet seçtiyse zaman bazlı geçişi devre dışı bırak
      */
-    fun isAutoPaletteEnabled(): Boolean = true // Ayarlardan kontrol edilebilir
+    fun isAutoPaletteEnabled(): Boolean = true
+    
+    fun getRecommendedPalettesForHour(hour: Int): List<String> {
+        return when {
+            hour in 5..10 -> listOf("Sunrise", "Ocean")
+            hour in 11..16 -> listOf("Ocean", "Forest")
+            hour in 17..21 -> listOf("Sunset", "Cosmic", "Fire")
+            else -> listOf("Cosmic", "Neon")
+        }
+    }
 }
 
 /**
  * Önceden tanımlanmış renk paletleri
  */
 enum class ColorPalette(
-    val name: String,
+    val paletteName: String,
     val primary: Long,    // ARGB format: 0xAARRGGBB
     val secondary: Long,
     val accent: Long,
@@ -136,70 +139,66 @@ enum class ColorPalette(
 ) {
     // Sabah: Ilık, uyanış tonları
     SUNRISE(
-        name = "Sunrise",
-        primary = 0xFFFFD700L,    // Altın sarısı
-        secondary = 0xFFFF8C42L,  // Turuncu
-        accent = 0xFFFFB6C1L,     // Açık pembe
-        background = 0xFF1A1A2EL  // Koyu lacivert
+        paletteName = "Sunrise",
+        primary = 0xFFFFD700L,
+        secondary = 0xFFFF8C42L,
+        accent = 0xFFFFB6C1L,
+        background = 0xFF1A1A2EL
     ),
     
-    // Öğle: Canlı, enerjik tonlar
     OCEAN(
-        name = "Ocean",
-        primary = 0xFF00B4DBL,    // Parlak mavi
-        secondary = 0xFF0083B0L,  // Okyanus mavisi
-        accent = 0xFF7BDCB5L,     // Nane yeşili
-        background = 0xFF0F0F1AL  // Çok koyu mavi
+        paletteName = "Ocean",
+        primary = 0xFF00B4DBL,
+        secondary = 0xFF0083B0L,
+        accent = 0xFF7BDCB5L,
+        background = 0xFF0F0F1AL
     ),
     
-    // Akşam: Sıcak, huzurlu tonlar
     SUNSET(
-        name = "Sunset",
-        primary = 0xFFFF6B6BL,    // Mercan kırmızısı
-        secondary = 0xFFFF8E72L,  // Şeftali
-        accent = 0xFFC792E5L,     // Lavanta
-        background = 0xFF1A0F1AL  // Koyu mor
+        paletteName = "Sunset",
+        primary = 0xFFFF6B6BL,
+        secondary = 0xFFFF8E72L,
+        accent = 0xFFC792E5L,
+        background = 0xFF1A0F1AL
     ),
     
-    // Gece: Soğuk, sakin tonlar
     COSMIC(
-        name = "Cosmic",
-        primary = 0xFF7B68AAL,    // Medium slate blue
-        secondary = 0xFF483D8BL,  // Dark slate blue
-        accent = 0xFF9370DBL,     // Medium purple
-        background = 0xFF0A0A12L  // Neredeyse siyah
+        paletteName = "Cosmic",
+        primary = 0xFF7B68AAL,
+        secondary = 0xFF483D8BL,
+        accent = 0xFF9370DBL,
+        background = 0xFF0A0A12L
     ),
     
-    // Ekstra paletler
     FOREST(
-        name = "Forest",
-        primary = 0xFF228B22L,    // Forest green
-        secondary = 0xFF32CD32L,  // Lime green
-        accent = 0xFF90EE90L,     // Light green
-        background = 0xFF0F1F0FL  // Çok koyu yeşil
+        paletteName = "Forest",
+        primary = 0xFF228B22L,
+        secondary = 0xFF32CD32L,
+        accent = 0xFF90EE90L,
+        background = 0xFF0F1F0FL
     ),
     
     FIRE(
-        name = "Fire",
-        primary = 0xFFFF4500L,    // Orange red
-        secondary = 0xFFFFD700L,  // Gold
-        accent = 0xFFFF6347L,     // Tomato
-        background = 0xFF1F0F0FL  // Koyu kırmızı-siyah
+        paletteName = "Fire",
+        primary = 0xFFFF4500L,
+        secondary = 0xFFFFD700L,
+        accent = 0xFFFF6347L,
+        background = 0xFF1F0F0FL
     ),
     
     MONOCHROME(
-        name = "Monochrome",
-        primary = 0xFFCCCCCCCL,   // Açık gri
-        secondary = 0xFF888888L,  // Orta gri
-        accent = 0xFF444444L,     // Koyu gri
-        background = 0xFF111111L  // Neredeyse siyah
+        paletteName = "Monochrome",
+        primary = 0xFFCCCCCCCL,
+        secondary = 0xFF888888L,
+        accent = 0xFF444444L,
+        background = 0xFF111111L
     ),
     
     NEON(
-        name = "Neon",
-        primary = 0xFF00FFFFL,    // Cyan
-        secondary = 0xFFFF00FFL,  // Magenta
-        accent = 0xFF00FF00L,     // Lime
-        background = 0xFF0A0A0AL  // Siyah
+        paletteName = "Neon",
+        primary = 0xFF00FFFFL,
+        secondary = 0xFFFF00FFL,
+        accent = 0xFF00FF00L,
+        background = 0xFF0A0A0AL
     )
 }

@@ -64,7 +64,8 @@ class PowerManager(private val context: Context) {
     val performanceProfile: StateFlow<PerformanceProfile> = _performanceProfile.asStateFlow()
     
     private var isScreenVisible = false
-    private var batteryLevel = 100
+    var batteryLevel = 100
+        private set
     private var isCharging = false
     private var isOverheating = false
     

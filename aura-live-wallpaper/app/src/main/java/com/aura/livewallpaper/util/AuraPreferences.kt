@@ -66,6 +66,13 @@ class AuraPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_TIME_OF_DAY, false)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_TIME_OF_DAY, value).apply()
     
+    var selectedPalette: String
+        get() = prefs.getString(KEY_SELECTED_PALETTE, "Cosmic") ?: "Cosmic"
+        set(value) = prefs.edit().putString(KEY_SELECTED_PALETTE, value).apply()
+    
+    val autoPalette: Boolean
+        get() = autoPaletteEnabled
+    
     companion object {
         private const val KEY_LIGHT_SENSITIVITY = "light_sensitivity"
         private const val KEY_AUDIO_SENSITIVITY = "audio_sensitivity"
@@ -79,5 +86,6 @@ class AuraPreferences(context: Context) {
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
         private const val KEY_ACCESSIBILITY_MODE = "accessibility_mode"
         private const val KEY_SHOW_TIME_OF_DAY = "show_time_of_day"
+        private const val KEY_SELECTED_PALETTE = "selected_palette"
     }
 }

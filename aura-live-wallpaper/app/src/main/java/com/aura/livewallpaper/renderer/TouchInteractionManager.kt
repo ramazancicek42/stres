@@ -82,12 +82,12 @@ class TouchInteractionManager(
     private var lastTapX = 0f
     private var lastTapY = 0f
     private var isFrozen = false
-    private var paletteShiftDirection = 0 // -1: önceki, 0: yok, 1: sonraki
+    private var paletteShiftDirection = 0
     
-    private val onGestureListener: ((GestureEvent) -> Unit)? = null
-    private val onRippleUpdate: (() -> Unit)? = null
-    private val onFreezeToggle: ((Boolean) -> Unit)? = null
-    private val onPaletteChange: ((Int) -> Unit)? = null
+    private var onGestureListener: ((GestureEvent) -> Unit)? = null
+    private var onRippleUpdate: (() -> Unit)? = null
+    private var onFreezeToggle: ((Boolean) -> Unit)? = null
+    private var onPaletteChange: ((Int) -> Unit)? = null
     
     /**
      * Yeni dokunma olayı
@@ -343,7 +343,7 @@ class TouchInteractionManager(
      * Haptic feedback tetikle
      */
     private fun triggerHaptic(effect: Int) {
-        triggerHaptic(VibrationEffect.get(effect))
+        triggerHaptic(VibrationEffect.createPredefined(effect))
     }
     
     private fun triggerHaptic(vibrationEffect: VibrationEffect) {
@@ -358,16 +358,15 @@ class TouchInteractionManager(
      * Callback'leri ayarla
      */
     fun setOnGestureListener(listener: (GestureEvent) -> Unit) {
-        // Bu basit implementation'da direkt saklayamayız, 
-        // ama gerçek uygulamada listener pattern kullanılabilir
+        onGestureListener = listener
     }
     
     fun setOnFreezeToggleListener(listener: (Boolean) -> Unit) {
-        // Implementation
+        onFreezeToggle = listener
     }
     
     fun setOnPaletteChangeListener(listener: (Int) -> Unit) {
-        // Implementation
+        onPaletteChange = listener
     }
     
     /**

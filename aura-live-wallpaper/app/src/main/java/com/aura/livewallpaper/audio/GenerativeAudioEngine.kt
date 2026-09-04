@@ -109,6 +109,11 @@ class GenerativeAudioEngine {
         playNote(freq)
     }
     
+    fun playNoteAtPosition(x: Float, y: Float) {
+        val index = ((x + y) * pentatonicFrequencies.size / 2).toInt().coerceIn(0, pentatonicFrequencies.size - 1)
+        playNote(pentatonicFrequencies[index])
+    }
+    
     private fun playNote(frequency: Double) {
         listener?.onNotePlayed(frequency)
         

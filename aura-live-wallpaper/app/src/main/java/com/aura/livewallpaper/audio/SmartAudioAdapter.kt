@@ -25,17 +25,16 @@ class SmartAudioAdapter {
         private const val TAG = "AuraSmartAudio"
         
         // Farklı müzik skalaları
-        val SCALE_MAJOR = doubleArrayOf(0, 2, 4, 5, 7, 9, 11)
-        val SCALE_MINOR = doubleArrayOf(0, 2, 3, 5, 7, 8, 10)
-        val SCALE_DORIAN = doubleArrayOf(0, 2, 3, 5, 7, 9, 10)
-        val SCALE_PHRYGIAN = doubleArrayOf(0, 1, 3, 5, 7, 8, 10)
-        val SCALE_LYDIAN = doubleArrayOf(0, 2, 4, 6, 7, 9, 11)
-        val SCALE_MIXOLYDIAN = doubleArrayOf(0, 2, 4, 5, 7, 9, 10)
-        val SCALE_LOCRIAN = doubleArrayOf(0, 1, 3, 5, 6, 8, 10)
+        val SCALE_MAJOR = doubleArrayOf(0.0, 2.0, 4.0, 5.0, 7.0, 9.0, 11.0)
+        val SCALE_MINOR = doubleArrayOf(0.0, 2.0, 3.0, 5.0, 7.0, 8.0, 10.0)
+        val SCALE_DORIAN = doubleArrayOf(0.0, 2.0, 3.0, 5.0, 7.0, 9.0, 10.0)
+        val SCALE_PHRYGIAN = doubleArrayOf(0.0, 1.0, 3.0, 5.0, 7.0, 8.0, 10.0)
+        val SCALE_LYDIAN = doubleArrayOf(0.0, 2.0, 4.0, 6.0, 7.0, 9.0, 11.0)
+        val SCALE_MIXOLYDIAN = doubleArrayOf(0.0, 2.0, 4.0, 5.0, 7.0, 9.0, 10.0)
+        val SCALE_LOCRIAN = doubleArrayOf(0.0, 1.0, 3.0, 5.0, 6.0, 8.0, 10.0)
         
-        // Pentatonik skalalar (daha uyumlu)
-        val SCALE_PENTATONIC_MAJOR = doubleArrayOf(0, 2, 4, 7, 9)
-        val SCALE_PENTATONIC_MINOR = doubleArrayOf(0, 3, 5, 7, 10)
+        val SCALE_PENTATONIC_MAJOR = doubleArrayOf(0.0, 2.0, 4.0, 7.0, 9.0)
+        val SCALE_PENTATONIC_MINOR = doubleArrayOf(0.0, 3.0, 5.0, 7.0, 10.0)
         
         const val SAMPLE_RATE = 44100
         const val BUFFER_SIZE = 1024
@@ -237,8 +236,8 @@ class SmartAudioAdapter {
         val beatDuration = 60f / (if (currentBPM > 0) currentBPM else 120f)
         
         // Beat'ten sonraki zamanın normalize edilmiş hali (0-1 arası sinüs dalgası)
-        val phase = (timeSinceBeat / beatDuration) * 2f * PI
-        return (sin(phase) + 1f) / 2f
+        val phase = (timeSinceBeat / beatDuration) * 2.0 * PI
+        return ((sin(phase) + 1.0) / 2.0).toFloat()
     }
     
     /**

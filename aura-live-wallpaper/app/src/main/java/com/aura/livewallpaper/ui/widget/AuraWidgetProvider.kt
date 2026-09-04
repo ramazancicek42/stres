@@ -1,5 +1,6 @@
 package com.aura.livewallpaper.ui.widget
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
@@ -114,22 +115,25 @@ class AuraWidgetProvider : AppWidgetProvider() {
         )
     }
     
-    private fun createPaletteChangeIntent(context: Context, palette: String): Intent {
-        return Intent(context, AuraWidgetProvider::class.java).apply {
+    private fun createPaletteChangeIntent(context: Context, palette: String): PendingIntent {
+        val intent = Intent(context, AuraWidgetProvider::class.java).apply {
             action = ACTION_CHANGE_PALETTE
             putExtra(EXTRA_PALETTE, palette)
         }
+        return PendingIntent.getBroadcast(context, palette.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
     
-    private fun createToggleAudioIntent(context: Context): Intent {
-        return Intent(context, AuraWidgetProvider::class.java).apply {
+    private fun createToggleAudioIntent(context: Context): PendingIntent {
+        val intent = Intent(context, AuraWidgetProvider::class.java).apply {
             action = ACTION_TOGGLE_AUDIO
         }
+        return PendingIntent.getBroadcast(context, 100, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
     
-    private fun createOpenSettingsIntent(context: Context): Intent {
-        return Intent(context, AuraWidgetProvider::class.java).apply {
-            action = ACTION_OPEN_SETTINGS
+    private fun createOpenSettingsIntent(context: Context): PendingIntent {
+        val intent = Intent(context, SettingsActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
+        return PendingIntent.getActivity(context, 200, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 }

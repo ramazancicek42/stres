@@ -28,4 +28,7 @@
     </string-array>
     
     <string name="wallpaper_description">AURA - Işığa ve sese duyarlı, prosedürel fraktal live wallpaper</string>
+    <string name="aura_widget_title">AURA</string>
+    <string name="aura_widget_description">AURA live wallpaper kontrol widget\'ı</string>
+    <string name="wallpaper_author">Aura Team</string>
 </resources>

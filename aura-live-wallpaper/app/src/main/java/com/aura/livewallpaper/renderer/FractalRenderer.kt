@@ -337,20 +337,30 @@ class FractalRenderer(
     
     // Yeni paletler
     private val sunrisePalette = floatArrayOf(
-        0.10f, 0.10f, 0.18f,  // Dark: Koyu lacivert
-        1.00f, 0.55f, 0.26f,  // Mid: Turuncu
-        1.00f, 0.84f, 0.00f   // Light: Altın sarısı
+        0.10f, 0.10f, 0.18f,
+        1.00f, 0.55f, 0.26f,
+        1.00f, 0.84f, 0.00f
     )
     
     private val cosmicPalette = floatArrayOf(
-        0.04f, 0.04f, 0.07f,  // Dark: Neredeyse siyah
-        0.48f, 0.41f, 0.67f,  // Mid: Medium slate blue
-        0.58f, 0.44f, 0.86f   // Light: Medium purple
+        0.04f, 0.04f, 0.07f,
+        0.48f, 0.41f, 0.67f,
+        0.58f, 0.44f, 0.86f
     )
     
     private val neonPalette = floatArrayOf(
-        0.04f, 0.04f, 0.04f,  // Dark: Siyah
-        0.00f, 1.00f, 1.00f,  // Mid: Cyan
-        1.00f, 0.00f, 1.00f   // Light: Magenta
+        0.04f, 0.04f, 0.04f,
+        0.00f, 1.00f, 1.00f,
+        1.00f, 0.00f, 1.00f
     )
+    
+    companion object {
+        val colorPalettes = arrayOf(
+            floatArrayOf(0.06f, 0.20f, 0.48f, 0.10f, 0.37f, 0.73f, 0.29f, 0.56f, 0.85f),
+            floatArrayOf(0.18f, 0.11f, 0.18f, 0.72f, 0.36f, 0.22f, 0.96f, 0.64f, 0.38f),
+            floatArrayOf(0.06f, 0.16f, 0.12f, 0.18f, 0.42f, 0.31f, 0.32f, 0.72f, 0.53f),
+            floatArrayOf(0.10f, 0.06f, 0.18f, 0.29f, 0.18f, 0.48f, 0.61f, 0.45f, 0.81f),
+            floatArrayOf(0.18f, 0.12f, 0.06f, 0.72f, 0.49f, 0.22f, 0.96f, 0.77f, 0.38f)
+        )
+    }
 }

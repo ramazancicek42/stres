@@ -121,9 +121,9 @@ class WeatherIntegration(private val context: Context) {
             
             val conditionId = weatherObject.getInt("id")
             val condition = mapWeatherCode(conditionId)
-            val temperature = mainObject.getFloat("temp")
+            val temperature = mainObject.getDouble("temp").toFloat()
             val humidity = mainObject.getInt("humidity")
-            val windSpeed = windObject.getFloat("speed")
+            val windSpeed = windObject.getDouble("speed").toFloat()
             val description = weatherObject.getString("description")
             val isDaytime = sysObject.getInt("dt") > 0 // Basit kontrol
             

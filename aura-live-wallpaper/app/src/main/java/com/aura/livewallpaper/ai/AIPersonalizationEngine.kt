@@ -57,7 +57,7 @@ class AIPersonalizationEngine(private val context: Context) {
     
     private val preferences = AuraPreferences(context)
     private val powerManager = PowerManager(context)
-    private val timeColorEngine = TimeColorEngine()
+    private val timeColorEngine = TimeColorEngine(context)
     
     private val usageHistory = mutableListOf<UsageSession>()
     private var currentSessionStart: Long? = null
@@ -152,7 +152,7 @@ class AIPersonalizationEngine(private val context: Context) {
         usageHistory.forEach { session ->
             paletteCounts[session.preferredPalette] = (paletteCounts[session.preferredPalette] ?: 0) + 1
         }
-        val favoritePalettes = paletteCounts.toSortedMap(compareByDescending { paletteCounts[it] })
+        val favoritePalettes = paletteCounts.entries.sortedByDescending { it.value }.associate { it.key to it.value }
         
         // Ortalama FPS tercihi
         val avgFps = usageHistory.map { it.fpsSetting }.average().toInt()
@@ -341,16 +341,16 @@ class AIPersonalizationEngine(private val context: Context) {
         val totalHours = usageHistory.sumOf { it.sessionDurationMinutes } / 60
         val avgSessionLength = usageHistory.map { it.sessionDurationMinutes }.average()
         
-        return mapOf(
-            "behaviorType" to pattern.behaviorType.name,
-            "peakHours" to pattern.peakHours.joinToString("-"),
-            "favoritePalette" to pattern.favoritePalettes.keys.firstOrNull() ?: "N/A",
-            "totalUsageHours" to totalHours,
-            "avgSessionLength" to "%.1f".format(avgSessionLength),
-            "audioUsagePercent" to "${(pattern.audioUsageRatio * 100).toInt()}%",
-            "confidenceScore" to "${(pattern.confidenceScore * 100).toInt()}%",
-            "dataPoints" to usageHistory.size
-        )
+        val result = mutableMapOf<String, Any>()
+        result["behaviorType"] = pattern.behaviorType.name
+        result["peakHours"] = pattern.peakHours.joinToString("-")
+        result["favoritePalette"] = pattern.favoritePalettes.keys.firstOrNull() ?: "N/A"
+        result["totalUsageHours"] = totalHours
+        result["avgSessionLength"] = "%.1f".format(avgSessionLength)
+        result["audioUsagePercent"] = "${(pattern.audioUsageRatio * 100).toInt()}%"
+        result["confidenceScore"] = "${(pattern.confidenceScore * 100).toInt()}%"
+        result["dataPoints"] = usageHistory.size
+        return result
     }
     
     /**

@@ -53,5 +53,5 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.opengl:opengl-es2:1.0.0")
+    // OpenGL ES 2.0 is part of Android framework, no external dependency needed
 }

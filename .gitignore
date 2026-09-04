@@ -1,23 +1,18 @@
 ```
-# Build artifacts
+# Build outputs
 build/
-*.apk
-*.aar
-*.jar
-*.class
+dist/
+target/
 
 # Dependencies
-.gradle/
 node_modules/
-venv/
-.venv/
+vendor/
 
 # IDE files
-.idea/
 .vscode/
-*.iml
-*.iws
-*.ipr
+.idea/
+*.swp
+*.swo
 
 # Logs
 *.log
@@ -25,9 +20,60 @@ venv/
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# OS generated files
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+build/
+
+# C/C++
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Testing
+.mypy_cache/
+.pytest_cache/
+
+# System
 .DS_Store
 Thumbs.db
 ```

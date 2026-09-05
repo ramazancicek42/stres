@@ -1,7 +1,12 @@
 package com.aura.livewallpaper.service
 
 import android.content.Context
-import android.opengl.GLSurfaceView
+import android.opengl.EGL14
+import android.opengl.EGLConfig as EGLConfig14
+import android.opengl.EGLContext
+import android.opengl.EGLDisplay
+import android.opengl.EGLSurface
+import android.opengl.GLES30
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -14,17 +19,14 @@ import com.aura.livewallpaper.audio.GenerativeAudioEngine
 import com.aura.livewallpaper.audio.SmartAudioAdapter
 import com.aura.livewallpaper.accessibility.AccessibilityManager
 import com.aura.livewallpaper.ml.PersonalizationEngine
-import com.aura.livewallpaper.meditation.MeditationSessionManager
-import com.aura.livewallpaper.meditation.BreathingGuide
-import com.aura.livewallpaper.meditation.StressEstimator
-import com.aura.livewallpaper.meditation.AdaptiveResponseSystem
 import com.aura.livewallpaper.renderer.FractalRenderer
 import com.aura.livewallpaper.sensor.LightSensorManager
 import com.aura.livewallpaper.util.AuraPreferences
+import kotlin.concurrent.thread
 
 /**
  * Ana Live Wallpaper Service
- * Tüm bileşenleri birleştirir: sensörler, render, ses
+ * OpenGL ES 3.0 ile gerçek zamanlı fraktal render
  */
 class AuraWallpaperService : WallpaperService() {
     
@@ -44,14 +46,19 @@ class AuraWallpaperService : WallpaperService() {
         private lateinit var smartAudioAdapter: SmartAudioAdapter
         private lateinit var accessibilityManager: AccessibilityManager
         private lateinit var personalizationEngine: PersonalizationEngine
-        private lateinit var meditationSessionManager: MeditationSessionManager
-        private lateinit var breathingGuide: BreathingGuide
-        private lateinit var stressEstimator: StressEstimator
-        private lateinit var adaptiveResponseSystem: AdaptiveResponseSystem
         private lateinit var fractalRenderer: FractalRenderer
         
-        private var glSurfaceView: GLSurfaceView? = null
+        // OpenGL ES değişkenleri
+        private var eglDisplay: EGLDisplay = EGL14.EGL_NO_DISPLAY
+        private var eglContext: EGLContext = EGL14.EGL_NO_CONTEXT
+        private var eglSurface: EGLSurface = EGL14.EGL_NO_SURFACE
+        private var eglConfig: EGLConfig14? = null
+        
+        private var renderThread: Thread? = null
+        private var isRendering = false
         private var isVisible = false
+        private var width = 0
+        private var height = 0
         
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
@@ -63,13 +70,6 @@ class AuraWallpaperService : WallpaperService() {
             smartAudioAdapter = SmartAudioAdapter()
             accessibilityManager = AccessibilityManager(this@AuraWallpaperService)
             personalizationEngine = PersonalizationEngine(this@AuraWallpaperService)
-            
-            // Meditasyon bileşenlerini başlat
-            meditationSessionManager = MeditationSessionManager(this@AuraWallpaperService)
-            breathingGuide = BreathingGuide()
-            stressEstimator = StressEstimator()
-            adaptiveResponseSystem = AdaptiveResponseSystem()
-            adaptiveResponseSystem.setup(stressEstimator, breathingGuide)
             
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -94,7 +94,6 @@ class AuraWallpaperService : WallpaperService() {
                 vibrator = vibrator
             )
             
-            // Listener'ları bağla
             lightSensorManager.setListener(this)
             audioAnalyzer.setListener(this)
             generativeAudio.setListener(this)
@@ -103,6 +102,7 @@ class AuraWallpaperService : WallpaperService() {
         }
         
         override fun onDestroy() {
+            stopRendering()
             stopAll()
             super.onDestroy()
         }
@@ -112,37 +112,34 @@ class AuraWallpaperService : WallpaperService() {
             
             if (visible) {
                 startAll()
+                startRendering()
             } else {
+                stopRendering()
                 stopAll()
             }
         }
         
         override fun onSurfaceCreated(holder: SurfaceHolder?) {
             super.onSurfaceCreated(holder)
+            holder?.setFormat(android.graphics.PixelFormat.RGBA_8888)
+        }
+        
+        override fun onSurfaceChanged(holder: SurfaceHolder?, format: Int, w: Int, h: Int) {
+            super.onSurfaceChanged(holder, format, w, h)
+            width = w
+            height = h
             
-            glSurfaceView = GLSurfaceView(this@AuraWallpaperService).apply {
-                // OpenGL ES 3.0 kullan
-                setEGLContextClientVersion(3)
-                
-                // RGBA_8888 pixel format
-                holder?.setFormat(android.graphics.PixelFormat.RGBA_8888)
-                
-                setRenderer(fractalRenderer)
-                
-                // FPS limiti ayarla
-                val fps = preferences.fpsLimit
-                if (fps <= 30) {
-                    renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
-                    post { requestRender() }
-                } else {
-                    renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
-                }
-            }
+            // EGL'yi bu yüzey için başlat
+            initEGL(holder)
+            
+            // Renderer'ı başlat
+            fractalRenderer.onSurfaceCreated(null, null)
+            fractalRenderer.onSurfaceChanged(null, w, h)
         }
         
         override fun onSurfaceDestroyed(holder: SurfaceHolder?) {
-            glSurfaceView?.onPause()
-            glSurfaceView = null
+            stopRendering()
+            destroyEGL()
             super.onSurfaceDestroyed(holder)
         }
         
@@ -159,84 +156,202 @@ class AuraWallpaperService : WallpaperService() {
             }
         }
         
+        // ============================================
+        // EGL YÖNETİMİ
+        // ============================================
+        
+        private fun initEGL(holder: SurfaceHolder?) {
+            // Display oluştur
+            eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+            if (eglDisplay == EGL14.EGL_NO_DISPLAY) {
+                throw RuntimeException("EGL display oluşturulamadı")
+            }
+            
+            // Version başlat
+            val version = IntArray(2)
+            EGL14.eglInitialize(eglDisplay, version, 0, version, 1)
+            
+            // Config seç
+            val configAttribs = intArrayOf(
+                EGL14.EGL_RENDERABLE_TYPE, 0x0040, // EGL_OPENGL_ES3_BIT
+                EGL14.EGL_RED_SIZE, 8,
+                EGL14.EGL_GREEN_SIZE, 8,
+                EGL14.EGL_BLUE_SIZE, 8,
+                EGL14.EGL_ALPHA_SIZE, 8,
+                EGL14.EGL_DEPTH_SIZE, 0,
+                EGL14.EGL_STENCIL_SIZE, 0,
+                EGL14.EGL_NONE
+            )
+            
+            val configs = arrayOfNulls<EGLConfig14>(1)
+            val numConfigs = IntArray(1)
+            EGL14.eglChooseConfig(eglDisplay, configAttribs, 0, configs, 0, 1, numConfigs, 0)
+            
+            if (numConfigs[0] == 0) {
+                throw RuntimeException("Uygun EGL config bulunamadı")
+            }
+            
+            eglConfig = configs[0]
+            
+            // Context oluştur (OpenGL ES 3.0)
+            val contextAttribs = intArrayOf(
+                EGL14.EGL_CONTEXT_CLIENT_VERSION, 3,
+                EGL14.EGL_NONE
+            )
+            
+            eglContext = EGL14.eglCreateContext(
+                eglDisplay, eglConfig, EGL14.EGL_NO_CONTEXT,
+                contextAttribs, 0
+            )
+            
+            if (eglContext == EGL14.EGL_NO_CONTEXT) {
+                throw RuntimeException("EGL context oluşturulamadı")
+            }
+            
+            // Surface oluştur
+            createEGLSurface(holder)
+        }
+        
+        private fun createEGLSurface(holder: SurfaceHolder?) {
+            if (eglDisplay == EGL14.EGL_NO_DISPLAY || eglContext == EGL14.EGL_NO_CONTEXT) {
+                return
+            }
+            
+            // Mevcut surface'ı temizle
+            if (eglSurface != EGL14.EGL_NO_SURFACE) {
+                EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                EGL14.eglDestroySurface(eglDisplay, eglSurface)
+            }
+            
+            val surfaceAttribs = intArrayOf(EGL14.EGL_NONE)
+            
+            // SurfaceHolder'dan window surface oluştur
+            eglSurface = EGL14.eglCreateWindowSurface(
+                eglDisplay, eglConfig, holder?.surface,
+                surfaceAttribs, 0
+            )
+            
+            if (eglSurface == EGL14.EGL_NO_SURFACE) {
+                throw RuntimeException("EGL surface oluşturulamadı")
+            }
+            
+            // Current yap
+            if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
+                throw RuntimeException("EGL current yapılamadı")
+            }
+        }
+        
+        private fun destroyEGL() {
+            if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
+                EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                
+                if (eglSurface != EGL14.EGL_NO_SURFACE) {
+                    EGL14.eglDestroySurface(eglDisplay, eglSurface)
+                    eglSurface = EGL14.EGL_NO_SURFACE
+                }
+                
+                if (eglContext != EGL14.EGL_NO_CONTEXT) {
+                    EGL14.eglDestroyContext(eglDisplay, eglContext)
+                    eglContext = EGL14.EGL_NO_CONTEXT
+                }
+                
+                EGL14.eglTerminate(eglDisplay)
+                eglDisplay = EGL14.EGL_NO_DISPLAY
+            }
+        }
+        
+        // ============================================
+        // RENDER DÖNGÜSÜ
+        // ============================================
+        
+        private fun startRendering() {
+            if (isRendering) return
+            
+            isRendering = true
+            renderThread = thread(name = "AuraRenderThread") {
+                renderLoop()
+            }
+        }
+        
+        private fun stopRendering() {
+            isRendering = false
+            renderThread?.interrupt()
+            renderThread = null
+        }
+        
+        private fun renderLoop() {
+            val fps = preferences.fpsLimit
+            val frameTimeMs = 1000L / fps
+            
+            while (isRendering && !Thread.interrupted()) {
+                val startTime = System.currentTimeMillis()
+                
+                if (isVisible && eglSurface != EGL14.EGL_NO_SURFACE) {
+                    // Render frame
+                    fractalRenderer.onDrawFrame(null)
+                    
+                    // Buffer'ı ekrana çiz
+                    EGL14.eglSwapBuffers(eglDisplay, eglSurface)
+                }
+                
+                // FPS limiti için bekle
+                val elapsed = System.currentTimeMillis() - startTime
+                val sleepTime = (frameTimeMs - elapsed).coerceAtLeast(1)
+                Thread.sleep(sleepTime)
+            }
+        }
+        
+        // ============================================
+        // BAŞLAT/DURDUR
+        // ============================================
+        
         private fun startAll() {
-            // Erişilebilirlik ayarlarını uygula
             val accessibilityParams = accessibilityManager.getRenderParameters()
             fractalRenderer.applyAccessibilityParams(accessibilityParams)
             
-            // Işık sensörünü başlat (her zaman açık olabilir, düşük pil)
             if (lightSensorManager.isAvailable) {
                 lightSensorManager.start()
             }
             
-            // Ses analizini başlat (sadece sessiz mod değilse ve izin varsa)
             if (!preferences.silentMode && audioAnalyzer.hasPermission) {
                 audioAnalyzer.start()
             }
             
-            // Ses motorunu başlat (sadece sessiz mod değilse)
             if (!preferences.silentMode) {
                 generativeAudio.start()
             }
-            
-            // Render'ı devam ettir
-            glSurfaceView?.onResume()
         }
         
         private fun stopAll() {
             lightSensorManager.stop()
             audioAnalyzer.stop()
             generativeAudio.stop()
-            glSurfaceView?.onPause()
         }
         
-        // LightSensorManager.Listener
+        // ============================================
+        // LISTENER CALLBACKS
+        // ============================================
+        
         override fun onLightLevelChanged(lux: Float) {
             val sensitivity = preferences.lightSensitivity
             val adjustedLux = lux * sensitivity
             fractalRenderer.setLightLevel(adjustedLux)
             
-            // Işık seviyesi ses filtresini de etkiler
             val filterCutoff = 0.3f + (lux / 10000f) * 0.7f
             generativeAudio.setFilterCutoff(filterCutoff)
             
-            // Kişiselleştirme motoru için palet kullanımını kaydet
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             personalizationEngine.recordPaletteUsage(preferences.colorPaletteIndex, hour)
-            
-            // Meditasyon seansı için ışık verisini kaydet
-            meditationSessionManager.recordLightLevel(lux / 10000f)
         }
         
-        // AudioAnalyzer.Listener
         override fun onAudioEnergyChanged(energy: Float, rms: Float) {
             fractalRenderer.setAudioEnergy(energy)
-            // SmartAudioAdapter'a ses verisini ilet (beat detection için)
             smartAudioAdapter.addAudioSample(rms)
-            
-            // Meditasyon sistemi için ses verisini analiz et
-            if (meditationSessionManager.isMeditating.value) {
-                stressEstimator.processAudioData(rms)
-                meditationSessionManager.recordStressLevel(stressEstimator.estimate.value.level)
-                
-                // Adaptif tepki sistemini güncelle
-                adaptiveResponseSystem.update()
-                val adaptiveParams = adaptiveResponseSystem.params.value
-                
-                // Renderer'a adaptif parametreleri uygula
-                fractalRenderer.setColorSaturation(adaptiveParams.colorSaturation)
-                fractalRenderer.setAnimationSpeed(adaptiveParams.animationSpeed)
-                fractalRenderer.setFractalComplexity(adaptiveParams.fractalComplexity)
-                
-                // Ses seviyesini ayarla
-                generativeAudio.setVolume(adaptiveParams.audioVolume)
-            }
         }
         
-        // GenerativeAudioEngine.Listener
         override fun onNotePlayed(frequency: Double) {
-            // İsteğe bağlı: her nota çaldığında hafif haptic feedback
-            // (şimdilik sadece touch'ta feedback veriyoruz)
+            // Her nota tetiklendiğinde fraktal nabız sinyali gönder
+            fractalRenderer.triggerBeatPulse()
         }
         
         private fun triggerHapticFeedback() {

@@ -279,6 +279,13 @@ class FractalRenderer(
         this.audioEnergy = energy * preferences.audioSensitivity
     }
     
+    /**
+     * Beat pulse tetikle (nota çalındığında)
+     */
+    fun triggerBeatPulse() {
+        this.beatSyncSignal = 1.0f
+    }
+    
     fun setColorSaturation(saturation: Float) {
         this.colorSaturation = saturation.coerceIn(0f, 2f)
     }

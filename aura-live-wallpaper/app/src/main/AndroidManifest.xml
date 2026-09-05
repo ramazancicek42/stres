@@ -45,6 +45,7 @@
             android:theme="@style/Theme.AuraLiveWallpaper">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
@@ -68,7 +69,7 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="com.aura.livewallpaper.ACTION_TOGGLE_FREEZE" />
-                <action android:name="com.aura.livewallpaper.ACTION_NEXT_PALETTE_CHANGE" />
+                <action android:name="com.aura.livewallpaper.ACTION_NEXT_PALETTE" />
             </intent-filter>
         </receiver>
 

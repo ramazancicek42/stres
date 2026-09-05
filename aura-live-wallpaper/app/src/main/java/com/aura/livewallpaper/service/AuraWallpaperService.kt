@@ -11,6 +11,8 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import com.aura.livewallpaper.audio.AudioAnalyzer
 import com.aura.livewallpaper.audio.GenerativeAudioEngine
+import com.aura.livewallpaper.audio.SmartAudioAdapter
+import com.aura.livewallpaper.accessibility.AccessibilityManager
 import com.aura.livewallpaper.renderer.FractalRenderer
 import com.aura.livewallpaper.sensor.LightSensorManager
 import com.aura.livewallpaper.util.AuraPreferences
@@ -34,6 +36,8 @@ class AuraWallpaperService : WallpaperService() {
         private lateinit var lightSensorManager: LightSensorManager
         private lateinit var audioAnalyzer: AudioAnalyzer
         private lateinit var generativeAudio: GenerativeAudioEngine
+        private lateinit var smartAudioAdapter: SmartAudioAdapter
+        private lateinit var accessibilityManager: AccessibilityManager
         private lateinit var fractalRenderer: FractalRenderer
         
         private var glSurfaceView: GLSurfaceView? = null
@@ -46,6 +50,8 @@ class AuraWallpaperService : WallpaperService() {
             lightSensorManager = LightSensorManager(this@AuraWallpaperService)
             audioAnalyzer = AudioAnalyzer(this@AuraWallpaperService)
             generativeAudio = GenerativeAudioEngine()
+            smartAudioAdapter = SmartAudioAdapter()
+            accessibilityManager = AccessibilityManager(this@AuraWallpaperService)
             
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -65,6 +71,7 @@ class AuraWallpaperService : WallpaperService() {
                 powerManager = powerManager,
                 timeColorEngine = timeColorEngine,
                 touchManager = touchManager,
+                smartAudioAdapter = smartAudioAdapter,
                 audioEngine = generativeAudio,
                 vibrator = vibrator
             )
@@ -98,15 +105,17 @@ class AuraWallpaperService : WallpaperService() {
             glSurfaceView = GLSurfaceView(this@AuraWallpaperService).apply {
                 setEGLContextClientVersion(2)
                 setRenderer(fractalRenderer)
-                renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
                 
                 // FPS limiti ayarla
                 val fps = preferences.fpsLimit
-                val frameIntervalMs = 1000 / fps
-                
-                // Not: GLSurfaceView'de doğrudan FPS limiti yok, 
-                // ama RENDERMODE_WHEN_DIRTY kullanarak manuel kontrol edilebilir
-                // MVP için CONTINUOUS_MODE kullanıyoruz, pil tasarrufu modunda WHEN_DIRTY'a geçilebilir
+                if (fps <= 30) {
+                    // Düşük FPS modu - manuel kontrol
+                    renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+                    // İlk render'ı tetikle
+                    post { requestRender() }
+                } else {
+                    renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+                }
             }
             
             holder?.setFormat(android.graphics.PixelFormat.RGBA_8888)
@@ -132,6 +141,12 @@ class AuraWallpaperService : WallpaperService() {
         }
         
         private fun startAll() {
+            // Erişilebilirlik ayarlarını uygula
+            if (accessibilityManager.isReduceMotionEnabled()) {
+                // Epilepsi güvenli modu - beat sync efektlerini kısıtla
+                fractalRenderer.setFractalComplexity(0.5f)
+            }
+            
             // Işık sensörünü başlat (her zaman açık olabilir, düşük pil)
             if (lightSensorManager.isAvailable) {
                 lightSensorManager.start()
@@ -172,6 +187,8 @@ class AuraWallpaperService : WallpaperService() {
         // AudioAnalyzer.Listener
         override fun onAudioEnergyChanged(energy: Float, rms: Float) {
             fractalRenderer.setAudioEnergy(energy)
+            // SmartAudioAdapter'a ses verisini ilet (beat detection için)
+            smartAudioAdapter.addAudioSample(rms)
         }
         
         // GenerativeAudioEngine.Listener

@@ -86,11 +86,32 @@ class TimeColorEngine(private val context: Context) {
     
     /**
      * İki palet arasında interpolate et (smooth transition için)
+     * İlerleme %80'i geçtiğinde bir sonraki palete geçiş yapar
      */
     fun getInterpolatedPalette(nextPalette: ColorPalette, progress: Float): ColorPalette {
         val current = _currentPalette.value.palette
         
-        return ColorPalette.valueOf(current.paletteName)
+        // İlerleme %80'i geçerse bir sonraki palete geç
+        return if (progress > 0.8f) {
+            nextPalette
+        } else {
+            current
+        }
+    }
+    
+    /**
+     * Palet renklerini interpolate et (GLSL shader için float array)
+     */
+    fun interpolatePaletteColors(
+        fromColors: FloatArray,
+        toColors: FloatArray,
+        progress: Float
+    ): FloatArray {
+        val result = FloatArray(fromColors.size)
+        for (i in fromColors.indices) {
+            result[i] = fromColors[i] + (toColors[i] - fromColors[i]) * progress
+        }
+        return result
     }
     
     private fun interpolateColor(color1: Long, color2: Long, progress: Float): Long {

@@ -186,7 +186,10 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleMedium
         )
         
-        val palettes = listOf("Okyanus Mavisi", "Gün Batımı", "Orman Yeşili", "Mor Gece", "Sıcak Amber")
+        val palettes = listOf(
+            "Okyanus Mavisi", "Gün Batımı", "Orman Yeşili", "Mor Gece",
+            "Sıcak Amber", "Gün Doğumu", "Kozmik", "Neon"
+        )
         palettes.forEachIndexed { index, name ->
             Row(
                 modifier = Modifier

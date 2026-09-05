@@ -13,15 +13,15 @@ class AuraCommandReceiver : BroadcastReceiver() {
     
     companion object {
         const val ACTION_TOGGLE_FREEZE = "com.aura.livewallpaper.ACTION_TOGGLE_FREEZE"
-        const val ACTION_NEXT_PALETTE = "com.aura.livewallpaper.ACTION_NEXT_PALETTE_CHANGE"
+        const val ACTION_NEXT_PALETTE = "com.aura.livewallpaper.ACTION_NEXT_PALETTE"
     }
     
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            AuraWidgetProvider.ACTION_FREEZE -> {
+            ACTION_TOGGLE_FREEZE, AuraWidgetProvider.ACTION_FREEZE -> {
                 toggleFreeze(context)
             }
-            AuraWidgetProvider.ACTION_NEXT_PALETTE -> {
+            ACTION_NEXT_PALETTE, AuraWidgetProvider.ACTION_NEXT_PALETTE -> {
                 nextPalette(context)
             }
         }

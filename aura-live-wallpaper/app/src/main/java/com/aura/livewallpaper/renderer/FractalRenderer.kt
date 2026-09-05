@@ -184,20 +184,25 @@ class FractalRenderer(
     }
 
     /**
-     * Zaman bazlı palet renklerini al
+     * Zaman bazlı palet renklerini al ve uygula
      */
     private fun updateTimeBasedPalette() {
         if (!autoPaletteEnabled) return
         
         timeColorEngine?.currentPalette?.value?.let { timePalette ->
-            // Smooth transition için interpolate et
-            val interpolatedPalette = timeColorEngine.getInterpolatedPalette(
-                timePalette.palette,
-                timePalette.transitionProgress
-            )
+            // Palet indeksini zaman dilimine göre belirle
+            val targetIndex = when (timePalette.timeOfDay) {
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.MORNING -> 5 // Sunrise
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.NOON -> 0    // Ocean
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.EVENING -> 1 // Sunset
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.NIGHT -> 6   // Cosmic
+            }
             
-            // ColorPalette'i float array'e çevir (implementasyon FractalShader'da)
-            // Şimdilik manuel paletteIndex kullan
+            // Geçiş ilerlemesine göre paletteojisini güncelle
+            if (targetIndex != currentPaletteIndex) {
+                currentPaletteIndex = targetIndex
+                preferences.colorPaletteIndex = targetIndex
+            }
         }
     }
 

@@ -28,4 +28,16 @@
     <color name="aura_amber_dark">#2e1f0f</color>
     <color name="aura_amber_mid">#b87c38</color>
     <color name="aura_amber_light">#f4c460</color>
+    
+    <color name="aura_sunrise_dark">#1a1a2e</color>
+    <color name="aura_sunrise_mid">#ff8c42</color>
+    <color name="aura_sunrise_light">#ffd700</color>
+    
+    <color name="aura_cosmic_dark">#0a0a12</color>
+    <color name="aura_cosmic_mid">#483d8b</color>
+    <color name="aura_cosmic_light">#9370db</color>
+    
+    <color name="aura_neon_dark">#0a0a0a</color>
+    <color name="aura_neon_mid">#00ffff</color>
+    <color name="aura_neon_light">#ff00ff</color>
 </resources>

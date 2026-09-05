@@ -27,12 +27,16 @@ const val FRACTAL_FRAGMENT_SHADER = """
     uniform float uTime;
     uniform float uLightLevel;
     uniform float uAudioEnergy;
+    uniform float uBeatSync;
     uniform vec2 uTouchPos;
     uniform float uTouchIntensity;
+    uniform vec3 uRipple;
     uniform vec3 uColorDark;
     uniform vec3 uColorMid;
     uniform vec3 uColorLight;
     uniform float uAspectRatio;
+    uniform float uComplexity;
+    uniform bool uFrozen;
     
     // Julia set parametreleri (zamanla değişen)
     vec2 juliaC = vec2(-0.8, 0.156);
@@ -68,20 +72,36 @@ const val FRACTAL_FRAGMENT_SHADER = """
             uv += (uv - touchUV) * uTouchIntensity * 0.3 * smoothstep(0.5, 0.0, dist);
         }
         
+        // Ripple efekti
+        if (uRipple.z > 0.01) {
+            vec2 rippleUV = uRipple.xy * 2.0 - 1.0;
+            rippleUV.x *= uAspectRatio;
+            float rippleDist = distance(uv, rippleUV);
+            float rippleWave = sin(rippleDist * 20.0 - uTime * 5.0) * uRipple.z;
+            uv += normalize(uv - rippleUV) * rippleWave * 0.05;
+        }
+        
         // Zoom - ses enerjisine ve ışığa bağlı
         float zoom = 1.5 - uAudioEnergy * 0.3 - uLightLevel * 0.2;
         vec2 p = uv * zoom;
         
-        // Domain warping uygula
-        float warpStrength = 0.1 + uAudioEnergy * 0.15;
+        // Domain warping uygula (complexity ile güçlendirilmiş)
+        float warpStrength = (0.1 + uAudioEnergy * 0.15) * uComplexity;
         p = warp(p, warpStrength);
         
-        // Julia set iterasyonu
+        // Julia set parametreleri - zamanla变化 (donmuşsa变化olmaz)
+        if (!uFrozen) {
+            juliaC.x = -0.8 + sin(uTime * 0.1) * 0.1;
+            juliaC.y = 0.156 + cos(uTime * 0.07) * 0.05;
+        }
+        
+        // Julia set iterasyonu (complexity iterasyon sayısını etkiler)
         vec2 z = p;
-        int maxIter = 80;
+        int maxIter = int(60.0 + uComplexity * 40.0);
         float iterFloat = 0.0;
         
-        for (int i = 0; i < maxIter; i++) {
+        for (int i = 0; i < 100; i++) {
+            if (i >= maxIter) break;
             // z = z^2 + c
             float x = (z.x * z.x - z.y * z.y) + juliaC.x;
             float y = (2.0 * z.x * z.y) + juliaC.y;
@@ -104,12 +124,15 @@ const val FRACTAL_FRAGMENT_SHADER = """
         // Renklendirme
         float t = iterFloat / float(maxIter);
         
-        // Animasyonlu renk döngüsü
-        t += uTime * 0.05;
+        // Animasyonlu renk döngüsü (donmuşsa zaman durur)
+        if (!uFrozen) {
+            t += uTime * 0.05;
+        }
         t = fract(t); // 0-1 aralığında döngü
         
-        // Audio energy ile renk yoğunluğunu artır
-        t = mix(t, t * 1.5 + uAudioEnergy * 0.3, 0.5);
+        // Beat sync ile nabız efekti
+        float beatPulse = uBeatSync * 0.3;
+        t = mix(t, t * 1.5 + uAudioEnergy * 0.3 + beatPulse, 0.5);
         
         vec3 color = palette(t);
         
@@ -118,6 +141,9 @@ const val FRACTAL_FRAGMENT_SHADER = """
         
         // Ses enerjisi ile ekstra parlama ekle
         color += vec3(uAudioEnergy * 0.3);
+        
+        // Beat sync ile parlama
+        color += vec3(beatPulse * 0.2);
         
         // Vignette efekti (kenarları karart)
         float vignette = 1.0 - dot(uv * uv, vec2(0.3));

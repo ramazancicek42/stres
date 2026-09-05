@@ -124,6 +124,10 @@ class GenerativeAudioEngine {
         val attackSamples = (samples * 0.1).toInt()
         val decaySamples = (samples * 0.3).toInt()
         
+        // Basit low-pass filtre katsayısı
+        var prevSample = 0.0
+        val filterCoeff = filterCutoff.toDouble()
+        
         for (i in 0 until samples) {
             val t = i.toDouble() / sampleRate
             
@@ -138,8 +142,9 @@ class GenerativeAudioEngine {
             var sample = sin(2 * PI * frequency * t) * 0.5
             sample += sin(2 * PI * frequency * 2 * t) * 0.2 // Harmonik
             
-            // Low-pass filter efekti (basitçe yüksek frekansları azalt)
-            sample *= filterCutoff + 0.2
+            // Gerçek low-pass filtre (exponential moving average)
+            prevSample = prevSample * (1.0 - filterCoeff) + sample * filterCoeff
+            sample = prevSample
             
             // Normalize ve 16-bit'e çevir
             val amplified = sample * envelope * volume * 32767

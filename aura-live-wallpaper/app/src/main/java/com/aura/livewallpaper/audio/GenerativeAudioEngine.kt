@@ -169,7 +169,10 @@ class GenerativeAudioEngine {
                 lastNoteTime = currentTime
             }
             
-            Thread.sleep(100)
+            // Daha hassas zamanlama için懇案sleep yerine SystemClock 사용
+            val elapsed = System.currentTimeMillis() - currentTime
+            val sleepTime = (50 - elapsed).coerceAtLeast(10) // 50ms aralıklarla kontrol
+            Thread.sleep(sleepTime)
         }
     }
 }

@@ -123,13 +123,43 @@ class SmartAudioAdapter {
     }
     
     /**
-     * Basit dominant frekans tahmini
+     * Basit dominant frekans tahmini (DFT tabanlı)
      */
     private fun estimateDominantFrequency(samples: FloatArray): Float {
-        // Gerçek uygulamada FFT kullanılmalı
-        // Bu basit bir tahmin
-        val zcr = calculateZeroCrossingRate(samples)
-        return zcr * SAMPLE_RATE / 2
+        if (samples.size < 64) {
+            // Buffer yeterince büyük değilse ZCR kullan
+            val zcr = calculateZeroCrossingRate(samples)
+            return zcr * SAMPLE_RATE / 2
+        }
+        
+        // Basit DFT (Discrete Fourier Transform) - sadece alt frekanslar için
+        val n = samples.size.coerceAtMost(256) // Performans için sınırla
+        var maxMagnitude = 0f
+        var dominantBin = 0
+        
+        // 50Hz - 2000Hz aralığını tara (müzik için en önemli frekans aralığı)
+        val minBin = (50.0 * n / SAMPLE_RATE).toInt()
+        val maxBin = (2000.0 * n / SAMPLE_RATE).toInt().coerceAtMost(n / 2)
+        
+        for (k in minBin..maxBin) {
+            var realPart = 0.0
+            var imagPart = 0.0
+            
+            for (i in 0 until n) {
+                val angle = 2.0 * PI * k * i / n
+                realPart += samples[i] * cos(angle)
+                imagPart -= samples[i] * sin(angle)
+            }
+            
+            val magnitude = sqrt((realPart * realPart + imagPart * imagPart).toFloat())
+            
+            if (magnitude > maxMagnitude) {
+                maxMagnitude = magnitude
+                dominantBin = k
+            }
+        }
+        
+        return dominantBin.toFloat() * SAMPLE_RATE / n
     }
     
     /**
@@ -175,13 +205,36 @@ class SmartAudioAdapter {
     }
     
     /**
-     * Spectral centroid hesaplama (basit versiyon)
+     * Spectral centroid hesaplama (DFT tabanlı)
      */
     private fun calculateSpectralCentroid(samples: FloatArray): Float {
-        // Gerçek uygulamada FFT gerekli
-        // Basit approximation: yüksek ZCR = yüksek centroid
-        val zcr = calculateZeroCrossingRate(samples)
-        return zcr * SAMPLE_RATE / 4
+        if (samples.size < 64) {
+            val zcr = calculateZeroCrossingRate(samples)
+            return zcr * SAMPLE_RATE / 4
+        }
+        
+        val n = samples.size.coerceAtMost(256)
+        var weightedSum = 0.0
+        var magnitudeSum = 0.0
+        
+        for (k in 0 until n / 2) {
+            var realPart = 0.0
+            var imagPart = 0.0
+            
+            for (i in 0 until n) {
+                val angle = 2.0 * PI * k * i / n
+                realPart += samples[i] * cos(angle)
+                imagPart -= samples[i] * sin(angle)
+            }
+            
+            val magnitude = sqrt((realPart * realPart + imagPart * imagPart).toDouble())
+            val frequency = k.toFloat() * SAMPLE_RATE / n
+            
+            weightedSum += frequency * magnitude
+            magnitudeSum += magnitude
+        }
+        
+        return if (magnitudeSum > 0) (weightedSum / magnitudeSum).toFloat() else 0f
     }
     
     /**
@@ -247,8 +300,15 @@ class SmartAudioAdapter {
         audioBuffer[bufferPosition++] = sample
         
         if (bufferPosition >= BUFFER_SIZE) {
+            // Buffer doldu, analiz et
+            val analysis = analyzeAudioSamples(audioBuffer.clone())
+            
+            // Beat detection sonucunu kaydet
+            if (analysis.beatProbability > 0.5f) {
+                detectBeat(analysis.rms)
+            }
+            
             bufferPosition = 0
-            // Buffer doldu, analiz edilebilir
         }
     }
     

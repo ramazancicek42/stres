@@ -13,6 +13,7 @@ import com.aura.livewallpaper.audio.AudioAnalyzer
 import com.aura.livewallpaper.audio.GenerativeAudioEngine
 import com.aura.livewallpaper.audio.SmartAudioAdapter
 import com.aura.livewallpaper.accessibility.AccessibilityManager
+import com.aura.livewallpaper.ml.PersonalizationEngine
 import com.aura.livewallpaper.renderer.FractalRenderer
 import com.aura.livewallpaper.sensor.LightSensorManager
 import com.aura.livewallpaper.util.AuraPreferences
@@ -38,6 +39,7 @@ class AuraWallpaperService : WallpaperService() {
         private lateinit var generativeAudio: GenerativeAudioEngine
         private lateinit var smartAudioAdapter: SmartAudioAdapter
         private lateinit var accessibilityManager: AccessibilityManager
+        private lateinit var personalizationEngine: PersonalizationEngine
         private lateinit var fractalRenderer: FractalRenderer
         
         private var glSurfaceView: GLSurfaceView? = null
@@ -52,6 +54,7 @@ class AuraWallpaperService : WallpaperService() {
             generativeAudio = GenerativeAudioEngine()
             smartAudioAdapter = SmartAudioAdapter()
             accessibilityManager = AccessibilityManager(this@AuraWallpaperService)
+            personalizationEngine = PersonalizationEngine(this@AuraWallpaperService)
             
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -142,10 +145,8 @@ class AuraWallpaperService : WallpaperService() {
         
         private fun startAll() {
             // Erişilebilirlik ayarlarını uygula
-            if (accessibilityManager.isReduceMotionEnabled()) {
-                // Epilepsi güvenli modu - beat sync efektlerini kısıtla
-                fractalRenderer.setFractalComplexity(0.5f)
-            }
+            val accessibilityParams = accessibilityManager.getRenderParameters()
+            fractalRenderer.applyAccessibilityParams(accessibilityParams)
             
             // Işık sensörünü başlat (her zaman açık olabilir, düşük pil)
             if (lightSensorManager.isAvailable) {
@@ -182,6 +183,10 @@ class AuraWallpaperService : WallpaperService() {
             // Işık seviyesi ses filtresini de etkiler
             val filterCutoff = 0.3f + (lux / 10000f) * 0.7f
             generativeAudio.setFilterCutoff(filterCutoff)
+            
+            // Kişiselleştirme motoru için palet kullanımını kaydet
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            personalizationEngine.recordPaletteUsage(preferences.colorPaletteIndex, hour)
         }
         
         // AudioAnalyzer.Listener

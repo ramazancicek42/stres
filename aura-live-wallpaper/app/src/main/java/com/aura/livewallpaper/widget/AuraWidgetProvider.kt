@@ -96,12 +96,26 @@ class AuraWidgetProvider : AppWidgetProvider() {
                 val prefs = context.getSharedPreferences("aura_prefs", Context.MODE_PRIVATE)
                 val current = prefs.getBoolean("frozen", false)
                 prefs.edit().putBoolean("frozen", !current).apply()
+                
+                // AuraCommandReceiver'a bildir
+                val commandIntent = Intent(context, com.aura.livewallpaper.service.AuraCommandReceiver::class.java).apply {
+                    action = com.aura.livewallpaper.service.AuraCommandReceiver.ACTION_TOGGLE_FREEZE
+                }
+                context.sendBroadcast(commandIntent)
+                
                 updateWidgets(context)
             }
             ACTION_NEXT_PALETTE -> {
                 val prefs = context.getSharedPreferences("aura_prefs", Context.MODE_PRIVATE)
                 val current = prefs.getInt("palette_index", 0)
                 prefs.edit().putInt("palette_index", (current + 1) % 8).apply()
+                
+                // AuraCommandReceiver'a bildir
+                val commandIntent = Intent(context, com.aura.livewallpaper.service.AuraCommandReceiver::class.java).apply {
+                    action = com.aura.livewallpaper.service.AuraCommandReceiver.ACTION_NEXT_PALETTE
+                }
+                context.sendBroadcast(commandIntent)
+                
                 updateWidgets(context)
             }
         }

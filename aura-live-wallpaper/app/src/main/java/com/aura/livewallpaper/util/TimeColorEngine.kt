@@ -150,6 +150,7 @@ class TimeColorEngine(private val context: Context) {
 
 /**
  * Önceden tanımlanmış renk paletleri
+ * FractalRenderer'daki paletlerle uyumlu
  */
 enum class ColorPalette(
     val paletteName: String,
@@ -158,68 +159,75 @@ enum class ColorPalette(
     val accent: Long,
     val background: Long
 ) {
-    // Sabah: Ilık, uyanış tonları
+    // 0: Ocean - Okyanus Mavisi
+    OCEAN(
+        paletteName = "Ocean",
+        primary = 0xFF0a1628L,
+        secondary = 0xFF1a4f7aL,
+        accent = 0xFF4a90d9L,
+        background = 0xFF0a1628L
+    ),
+    
+    // 1: Sunset - Gün Batımı
+    SUNSET(
+        paletteName = "Sunset",
+        primary = 0xFF2d1b2eL,
+        secondary = 0xFFb85c38L,
+        accent = 0xFFf4a460L,
+        background = 0xFF1a0f1aL
+    ),
+    
+    // 2: Forest - Orman Yeşili
+    FOREST(
+        paletteName = "Forest",
+        primary = 0xFF0f281eL,
+        secondary = 0xFF2d6a4fL,
+        accent = 0xFF52b788L,
+        background = 0xFF0f1f0fL
+    ),
+    
+    // 3: Night - Mor Gece
+    COSMIC(
+        paletteName = "Cosmic",
+        primary = 0xFF1a0f2eL,
+        secondary = 0xFF4a2d7aL,
+        accent = 0xFF9b72cfL,
+        background = 0xFF0a0a12L
+    ),
+    
+    // 4: Amber - Sıcak Amber
+    FIRE(
+        paletteName = "Fire",
+        primary = 0xFF2e1f0fL,
+        secondary = 0xFFb87c38L,
+        accent = 0xFFf4c460L,
+        background = 0xFF1f0f0fL
+    ),
+    
+    // 5: Sunrise - Gün Doğumu
     SUNRISE(
         paletteName = "Sunrise",
-        primary = 0xFFFFD700L,
+        primary = 0xFF1a1a2eL,
         secondary = 0xFFFF8C42L,
-        accent = 0xFFFFB6C1L,
+        accent = 0xFFFFD700L,
         background = 0xFF1A1A2EL
     ),
     
-    OCEAN(
-        paletteName = "Ocean",
-        primary = 0xFF00B4DBL,
-        secondary = 0xFF0083B0L,
-        accent = 0xFF7BDCB5L,
-        background = 0xFF0F0F1AL
-    ),
-    
-    SUNSET(
-        paletteName = "Sunset",
-        primary = 0xFFFF6B6BL,
-        secondary = 0xFFFF8E72L,
-        accent = 0xFFC792E5L,
-        background = 0xFF1A0F1AL
-    ),
-    
-    COSMIC(
-        paletteName = "Cosmic",
-        primary = 0xFF7B68AAL,
-        secondary = 0xFF483D8BL,
-        accent = 0xFF9370DBL,
-        background = 0xFF0A0A12L
-    ),
-    
-    FOREST(
-        paletteName = "Forest",
-        primary = 0xFF228B22L,
-        secondary = 0xFF32CD32L,
-        accent = 0xFF90EE90L,
-        background = 0xFF0F1F0FL
-    ),
-    
-    FIRE(
-        paletteName = "Fire",
-        primary = 0xFFFF4500L,
-        secondary = 0xFFFFD700L,
-        accent = 0xFFFF6347L,
-        background = 0xFF1F0F0FL
-    ),
-    
-    MONOCHROME(
-        paletteName = "Monochrome",
-        primary = 0xFFCCCCCCCL,
-        secondary = 0xFF888888L,
-        accent = 0xFF444444L,
-        background = 0xFF111111L
-    ),
-    
+    // 6: Cosmic - Kozmik
     NEON(
         paletteName = "Neon",
-        primary = 0xFF00FFFFL,
-        secondary = 0xFFFF00FFL,
-        accent = 0xFF00FF00L,
+        primary = 0xFF0a0a0aL,
+        secondary = 0xFF00FFFFL,
+        accent = 0xFFFF00FFL,
         background = 0xFF0A0A0AL
+    ),
+    
+    // 7: Monochrome - Monokrom
+    MONOCHROME(
+        paletteName = "Monochrome",
+        primary = 0xFF111111L,
+        secondary = 0xFF444444L,
+        accent = 0xFFCCCCCCCL,
+        background = 0xFF111111L
     )
 }

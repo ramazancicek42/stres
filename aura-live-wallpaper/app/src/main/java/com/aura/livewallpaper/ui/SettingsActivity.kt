@@ -74,6 +74,9 @@ fun SettingsScreen(
     var powerSaverMode by remember { mutableStateOf(preferences.powerSaverMode) }
     var colorPaletteIndex by remember { mutableStateOf(preferences.colorPaletteIndex) }
     var fpsLimit by remember { mutableStateOf(preferences.fpsLimit) }
+    var autoPaletteEnabled by remember { mutableStateOf(preferences.autoPaletteEnabled) }
+    var hapticEnabled by remember { mutableStateOf(preferences.hapticEnabled) }
+    var accessibilityMode by remember { mutableStateOf(preferences.accessibilityMode) }
     
     Column(
         modifier = Modifier
@@ -178,6 +181,70 @@ fun SettingsScreen(
             )
         }
         
+        // Otomatik Palet Değişimi Switch
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Otomatik Palet Değişimi",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Switch(
+                checked = autoPaletteEnabled,
+                onCheckedChange = {
+                    autoPaletteEnabled = it
+                    preferences.autoPaletteEnabled = it
+                }
+            )
+        }
+        
+        // Haptic Feedback Switch
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Titreşim Geri Bildirimi",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Switch(
+                checked = hapticEnabled,
+                onCheckedChange = {
+                    hapticEnabled = it
+                    preferences.hapticEnabled = it
+                }
+            )
+        }
+        
+        // Erişilebilirlik Modu Switch
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Erişilebilirlik Modu",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = "Epilepsi güvenli modu, azaltılmış hareket",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = accessibilityMode,
+                onCheckedChange = {
+                    accessibilityMode = it
+                    preferences.accessibilityMode = it
+                }
+            )
+        }
+        
         Divider()
         
         // Renk Paleti Seçimi
@@ -260,7 +327,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = "💡 İpucu",
+                    text = "İpucu",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

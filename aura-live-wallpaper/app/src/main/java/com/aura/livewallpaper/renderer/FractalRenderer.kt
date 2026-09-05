@@ -322,6 +322,22 @@ class FractalRenderer(
     fun setFractalComplexity(complexity: Float) {
         fractalComplexity = complexity.coerceIn(0.5f, 2.0f)
     }
+    
+    /**
+     * Erişilebilirlik parametrelerini uygula
+     */
+    fun applyAccessibilityParams(params: com.aura.livewallpaper.accessibility.AccessibilityManager.AccessibilityRenderParams) {
+        if (params.reduceMotion) {
+            fractalComplexity = 0.5f
+        }
+        if (params.disableFlashing) {
+            // Beat sync efektlerini devre dışı bırak
+            beatSyncSignal = 0f
+        }
+        if (params.slowTransitions) {
+            // Geçiş hızını yavaşlat (daha düşük interpolasyon)
+        }
+    }
 
     fun toggleFreeze() {
         isFrozen = !isFrozen

@@ -35,8 +35,20 @@ class MeditationSessionManager(private val context: Context) {
         val averageSessionDurationMs: Long,
         val longestSessionMs: Long,
         val currentStreak: Int,
-        val lastSessionDate: String?
-    )
+        val lastSessionDate: String?,
+        val bestStreak: Int = 0,
+        val bestStressReduction: Float = 0f
+    ) {
+        fun getFormattedAverageDuration(): String {
+            val minutes = (averageSessionDurationMs / 1000) / 60
+            val seconds = (averageSessionDurationMs / 1000) % 60
+            return String.format("%d:%02d", minutes, seconds)
+        }
+        
+        fun getFormattedBestStressReduction(): String {
+            return "${(bestStressReduction * 100).toInt()}%"
+        }
+    }
     
     private val _currentSession = MutableStateFlow<MeditationSession?>(null)
     val currentSession: StateFlow<MeditationSession?> = _currentSession.asStateFlow()
@@ -46,6 +58,25 @@ class MeditationSessionManager(private val context: Context) {
     
     private val _elapsedTime = MutableStateFlow(0L)
     val elapsedTime: StateFlow<Long> = _elapsedTime.asStateFlow()
+    
+    private val _sessionDuration = MutableStateFlow(0L)
+    val sessionDuration: StateFlow<Long> = _sessionDuration.asStateFlow()
+    
+    private val _currentStressLevel = MutableStateFlow(0.5f)
+    val currentStressLevel: StateFlow<Float> = _currentStressLevel.asStateFlow()
+    
+    private val _sessions = MutableStateFlow<List<MeditationSession>>(emptyList())
+    val sessions: StateFlow<List<MeditationSession>> = _sessions.asStateFlow()
+    
+    private val _stats = MutableStateFlow(MeditationStats(
+        totalSessions = 0,
+        totalDurationMs = 0,
+        averageSessionDurationMs = 0,
+        longestSessionMs = 0,
+        currentStreak = 0,
+        lastSessionDate = null
+    ))
+    val stats: StateFlow<MeditationStats> = _stats.asStateFlow()
     
     private val _stressHistory = mutableListOf<Float>()
     private val _lightHistory = mutableListOf<Float>()
@@ -71,6 +102,8 @@ class MeditationSessionManager(private val context: Context) {
         _currentSession.value = MeditationSession(startTime = sessionStartTime)
         _isMeditating.value = true
         _elapsedTime.value = 0L
+        _sessionDuration.value = 0L
+        _currentStressLevel.value = 0.5f
         _stressHistory.clear()
         _lightHistory.clear()
         breathingCycles = 0
@@ -109,6 +142,10 @@ class MeditationSessionManager(private val context: Context) {
         saveSession(session)
         updateStats(session)
         
+        // StateFlow'ları güncelle
+        _sessions.value = getSessionHistory()
+        _stats.value = getStats()
+        
         return session
     }
     
@@ -117,6 +154,7 @@ class MeditationSessionManager(private val context: Context) {
      */
     fun recordStressLevel(level: Float) {
         if (_isMeditating.value) {
+            _currentStressLevel.value = level.coerceIn(0f, 1f)
             _stressHistory.add(level.coerceIn(0f, 1f))
         }
     }
@@ -144,7 +182,9 @@ class MeditationSessionManager(private val context: Context) {
      */
     fun updateElapsedTime() {
         if (_isMeditating.value) {
-            _elapsedTime.value = System.currentTimeMillis() - sessionStartTime
+            val elapsed = System.currentTimeMillis() - sessionStartTime
+            _elapsedTime.value = elapsed
+            _sessionDuration.value = elapsed
         }
     }
     
@@ -182,13 +222,26 @@ class MeditationSessionManager(private val context: Context) {
         val streak = calculateStreak(sessions)
         val lastDate = sessions.lastOrNull()?.let { formatDate(it.startTime) }
         
+        // En iyi stres azaltma hesapla
+        var bestStressReduction = 0f
+        sessions.forEach { session ->
+            if (session.averageStressLevel < 0.5f) {
+                val reduction = 0.5f - session.averageStressLevel
+                if (reduction > bestStressReduction) {
+                    bestStressReduction = reduction
+                }
+            }
+        }
+        
         return MeditationStats(
             totalSessions = totalSessions,
             totalDurationMs = totalDuration,
             averageSessionDurationMs = avgDuration,
             longestSessionMs = longest,
             currentStreak = streak,
-            lastSessionDate = lastDate
+            lastSessionDate = lastDate,
+            bestStreak = streak,
+            bestStressReduction = bestStressReduction
         )
     }
     

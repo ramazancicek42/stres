@@ -72,6 +72,10 @@ class FractalRenderer(
     private var currentPaletteIndex = 0
     private var autoPaletteEnabled = true
     
+    // Adaptif parametreler (meditasyon sistemi için)
+    private var colorSaturation = 1f
+    private var animationSpeed = 1f
+    
     // Ripple efekti için
     private var rippleX = -1f
     private var rippleY = -1f
@@ -137,7 +141,7 @@ class FractalRenderer(
 
         fullScreenQuad?.useProgram()
 
-        val currentTime = (System.currentTimeMillis() - startTime) / 1000f
+        val currentTime = (System.currentTimeMillis() - startTime) / 1000f * animationSpeed
 
         // Time-based palette güncelleme
         if (autoPaletteEnabled) {
@@ -252,6 +256,20 @@ class FractalRenderer(
 
     fun setAudioEnergy(energy: Float) {
         this.audioEnergy = energy * preferences.audioSensitivity
+    }
+    
+    /**
+     * Adaptif renk doygunluğu (meditasyon sistemi için)
+     */
+    fun setColorSaturation(saturation: Float) {
+        this.colorSaturation = saturation.coerceIn(0f, 2f)
+    }
+    
+    /**
+     * Adaptif animasyon hızı (meditasyon sistemi için)
+     */
+    fun setAnimationSpeed(speed: Float) {
+        this.animationSpeed = speed.coerceIn(0f, 2f)
     }
 
     fun handleTouchEvent(event: MotionEvent): Boolean {

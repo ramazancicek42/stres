@@ -1,0 +1,291 @@
+package com.aura.livewallpaper.meditation
+
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.Calendar
+
+/**
+ * Meditasyon seanslarını yönetir.
+ * 
+ * Özellikler:
+ * - Seans başlat/durdur
+ * - Süre takibi
+ * - Seans geçmişi kaydetme
+ * - İstatistikler
+ */
+class MeditationSessionManager(private val context: Context) {
+    
+    private val prefs: SharedPreferences = context.getSharedPreferences("aura_meditation", Context.MODE_PRIVATE)
+    
+    data class MeditationSession(
+        val startTime: Long,
+        val endTime: Long = 0L,
+        val durationMs: Long = 0L,
+        val averageStressLevel: Float = 0f,
+        val breathingCycles: Int = 0,
+        val lightLevelAvg: Float = 0f
+    )
+    
+    data class MeditationStats(
+        val totalSessions: Int,
+        val totalDurationMs: Long,
+        val averageSessionDurationMs: Long,
+        val longestSessionMs: Long,
+        val currentStreak: Int,
+        val lastSessionDate: String?
+    )
+    
+    private val _currentSession = MutableStateFlow<MeditationSession?>(null)
+    val currentSession: StateFlow<MeditationSession?> = _currentSession.asStateFlow()
+    
+    private val _isMeditating = MutableStateFlow(false)
+    val isMeditating: StateFlow<Boolean> = _isMeditating.asStateFlow()
+    
+    private val _elapsedTime = MutableStateFlow(0L)
+    val elapsedTime: StateFlow<Long> = _elapsedTime.asStateFlow()
+    
+    private val _stressHistory = mutableListOf<Float>()
+    private val _lightHistory = mutableListOf<Float>()
+    private var breathingCycles = 0
+    private var sessionStartTime = 0L
+    
+    companion object {
+        private const val KEY_SESSION_HISTORY = "session_history"
+        private const val KEY_TOTAL_SESSIONS = "total_sessions"
+        private const val KEY_TOTAL_DURATION = "total_duration"
+        private const val KEY_LONGEST_SESSION = "longest_session"
+        private const val KEY_STREAK = "streak"
+        private const val KEY_LAST_SESSION_DATE = "last_session_date"
+    }
+    
+    /**
+     * Meditasyon seansını başlat
+     */
+    fun startSession() {
+        if (_isMeditating.value) return
+        
+        sessionStartTime = System.currentTimeMillis()
+        _currentSession.value = MeditationSession(startTime = sessionStartTime)
+        _isMeditating.value = true
+        _elapsedTime.value = 0L
+        _stressHistory.clear()
+        _lightHistory.clear()
+        breathingCycles = 0
+    }
+    
+    /**
+     * Meditasyon seansını durdur ve kaydet
+     */
+    fun stopSession(): MeditationSession? {
+        if (!_isMeditating.value) return null
+        
+        val endTime = System.currentTimeMillis()
+        val duration = endTime - sessionStartTime
+        
+        val avgStress = if (_stressHistory.isNotEmpty()) {
+            _stressHistory.average().toFloat()
+        } else 0.5f
+        
+        val avgLight = if (_lightHistory.isNotEmpty()) {
+            _lightHistory.average().toFloat()
+        } else 0.5f
+        
+        val session = MeditationSession(
+            startTime = sessionStartTime,
+            endTime = endTime,
+            durationMs = duration,
+            averageStressLevel = avgStress,
+            breathingCycles = breathingCycles,
+            lightLevelAvg = avgLight
+        )
+        
+        _currentSession.value = session
+        _isMeditating.value = false
+        
+        // Geçmişe kaydet
+        saveSession(session)
+        updateStats(session)
+        
+        return session
+    }
+    
+    /**
+     * Stres seviyesini kaydet
+     */
+    fun recordStressLevel(level: Float) {
+        if (_isMeditating.value) {
+            _stressHistory.add(level.coerceIn(0f, 1f))
+        }
+    }
+    
+    /**
+     * Işık seviyesini kaydet
+     */
+    fun recordLightLevel(level: Float) {
+        if (_isMeditating.value) {
+            _lightHistory.add(level.coerceIn(0f, 1f))
+        }
+    }
+    
+    /**
+     * Nefes döngüsünü kaydet
+     */
+    fun recordBreathingCycle() {
+        if (_isMeditating.value) {
+            breathingCycles++
+        }
+    }
+    
+    /**
+     * Geçerli süreyi güncelle
+     */
+    fun updateElapsedTime() {
+        if (_isMeditating.value) {
+            _elapsedTime.value = System.currentTimeMillis() - sessionStartTime
+        }
+    }
+    
+    /**
+     * Geçmiş seansları getir
+     */
+    fun getSessionHistory(): List<MeditationSession> {
+        val historyJson = prefs.getString(KEY_SESSION_HISTORY, "") ?: ""
+        if (historyJson.isEmpty()) return emptyList()
+        
+        return historyJson.split(";").mapNotNull { sessionStr ->
+            val parts = sessionStr.split(",")
+            if (parts.size >= 6) {
+                MeditationSession(
+                    startTime = parts[0].toLongOrNull() ?: 0L,
+                    endTime = parts[1].toLongOrNull() ?: 0L,
+                    durationMs = parts[2].toLongOrNull() ?: 0L,
+                    averageStressLevel = parts[3].toFloatOrNull() ?: 0.5f,
+                    breathingCycles = parts[4].toIntOrNull() ?: 0,
+                    lightLevelAvg = parts[5].toFloatOrNull() ?: 0.5f
+                )
+            } else null
+        }
+    }
+    
+    /**
+     * İstatistikleri getir
+     */
+    fun getStats(): MeditationStats {
+        val sessions = getSessionHistory()
+        val totalSessions = sessions.size
+        val totalDuration = sessions.sumOf { it.durationMs }
+        val avgDuration = if (totalSessions > 0) totalDuration / totalSessions else 0L
+        val longest = sessions.maxOfOrNull { it.durationMs } ?: 0L
+        val streak = calculateStreak(sessions)
+        val lastDate = sessions.lastOrNull()?.let { formatDate(it.startTime) }
+        
+        return MeditationStats(
+            totalSessions = totalSessions,
+            totalDurationMs = totalDuration,
+            averageSessionDurationMs = avgDuration,
+            longestSessionMs = longest,
+            currentStreak = streak,
+            lastSessionDate = lastDate
+        )
+    }
+    
+    private fun saveSession(session: MeditationSession) {
+        val history = getSessionHistory().toMutableList()
+        history.add(session)
+        
+        // Son 50 seansı tut
+        val trimmedHistory = history.takeLast(50)
+        
+        val historyJson = trimmedHistory.joinToString(";") { s ->
+            "${s.startTime},${s.endTime},${s.durationMs},${s.averageStressLevel},${s.breathingCycles},${s.lightLevelAvg}"
+        }
+        
+        prefs.edit().putString(KEY_SESSION_HISTORY, historyJson).apply()
+    }
+    
+    private fun updateStats(session: MeditationSession) {
+        val totalSessions = prefs.getInt(KEY_TOTAL_SESSIONS, 0) + 1
+        val totalDuration = prefs.getLong(KEY_TOTAL_DURATION, 0) + session.durationMs
+        val longest = prefs.getLong(KEY_LONGEST_SESSION, 0).coerceAtLeast(session.durationMs)
+        val lastDate = formatDate(session.startTime)
+        
+        // Streak hesapla
+        val lastSessionDate = prefs.getString(KEY_LAST_SESSION_DATE, null)
+        val today = formatDate(System.currentTimeMillis())
+        val yesterday = formatDate(System.currentTimeMillis() - 86400000)
+        
+        val currentStreak = if (lastSessionDate == yesterday || lastSessionDate == today) {
+            prefs.getInt(KEY_STREAK, 0) + 1
+        } else if (lastSessionDate == null) {
+            1
+        } else {
+            1 // Streak kırıldı
+        }
+        
+        prefs.edit()
+            .putInt(KEY_TOTAL_SESSIONS, totalSessions)
+            .putLong(KEY_TOTAL_DURATION, totalDuration)
+            .putLong(KEY_LONGEST_SESSION, longest)
+            .putInt(KEY_STREAK, currentStreak)
+            .putString(KEY_LAST_SESSION_DATE, today)
+            .apply()
+    }
+    
+    private fun calculateStreak(sessions: List<MeditationSession>): Int {
+        if (sessions.isEmpty()) return 0
+        
+        var streak = 1
+        val today = formatDate(System.currentTimeMillis())
+        val sortedSessions = sessions.sortedByDescending { it.startTime }
+        
+        // Bugün meditasyon yaptıysa streak devam eder
+        val lastSessionDate = formatDate(sortedSessions.first().startTime)
+        if (lastSessionDate != today && lastSessionDate != formatDate(System.currentTimeMillis() - 86400000)) {
+            return 0
+        }
+        
+        for (i in 0 until sortedSessions.size - 1) {
+            val currentDate = formatDate(sortedSessions[i].startTime)
+            val nextDate = formatDate(sortedSessions[i + 1].startTime)
+            
+            val currentDateMs = parseDate(currentDate)
+            val nextDateMs = parseDate(nextDate)
+            
+            if (currentDateMs - nextDateMs <= 86400000) {
+                streak++
+            } else {
+                break
+            }
+        }
+        
+        return streak
+    }
+    
+    private fun formatDate(timestamp: Long): String {
+        val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+        return "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.MONTH)}-${cal.get(Calendar.DAY_OF_MONTH)}"
+    }
+    
+    private fun parseDate(dateStr: String): Long {
+        val parts = dateStr.split("-")
+        if (parts.size == 3) {
+            val cal = Calendar.getInstance()
+            cal.set(parts[0].toInt(), parts[1].toInt(), parts[2].toInt(), 0, 0, 0)
+            return cal.timeInMillis
+        }
+        return 0L
+    }
+    
+    /**
+     * Süreyi formatla (mm:ss)
+     */
+    fun formatDuration(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+}

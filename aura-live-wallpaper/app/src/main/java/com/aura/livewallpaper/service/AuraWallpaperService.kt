@@ -14,6 +14,10 @@ import com.aura.livewallpaper.audio.GenerativeAudioEngine
 import com.aura.livewallpaper.audio.SmartAudioAdapter
 import com.aura.livewallpaper.accessibility.AccessibilityManager
 import com.aura.livewallpaper.ml.PersonalizationEngine
+import com.aura.livewallpaper.meditation.MeditationSessionManager
+import com.aura.livewallpaper.meditation.BreathingGuide
+import com.aura.livewallpaper.meditation.StressEstimator
+import com.aura.livewallpaper.meditation.AdaptiveResponseSystem
 import com.aura.livewallpaper.renderer.FractalRenderer
 import com.aura.livewallpaper.sensor.LightSensorManager
 import com.aura.livewallpaper.util.AuraPreferences
@@ -40,6 +44,10 @@ class AuraWallpaperService : WallpaperService() {
         private lateinit var smartAudioAdapter: SmartAudioAdapter
         private lateinit var accessibilityManager: AccessibilityManager
         private lateinit var personalizationEngine: PersonalizationEngine
+        private lateinit var meditationSessionManager: MeditationSessionManager
+        private lateinit var breathingGuide: BreathingGuide
+        private lateinit var stressEstimator: StressEstimator
+        private lateinit var adaptiveResponseSystem: AdaptiveResponseSystem
         private lateinit var fractalRenderer: FractalRenderer
         
         private var glSurfaceView: GLSurfaceView? = null
@@ -55,6 +63,13 @@ class AuraWallpaperService : WallpaperService() {
             smartAudioAdapter = SmartAudioAdapter()
             accessibilityManager = AccessibilityManager(this@AuraWallpaperService)
             personalizationEngine = PersonalizationEngine(this@AuraWallpaperService)
+            
+            // Meditasyon bileşenlerini başlat
+            meditationSessionManager = MeditationSessionManager(this@AuraWallpaperService)
+            breathingGuide = BreathingGuide()
+            stressEstimator = StressEstimator()
+            adaptiveResponseSystem = AdaptiveResponseSystem()
+            adaptiveResponseSystem.setup(stressEstimator, breathingGuide)
             
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -187,6 +202,9 @@ class AuraWallpaperService : WallpaperService() {
             // Kişiselleştirme motoru için palet kullanımını kaydet
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             personalizationEngine.recordPaletteUsage(preferences.colorPaletteIndex, hour)
+            
+            // Meditasyon seansı için ışık verisini kaydet
+            meditationSessionManager.recordLightLevel(lux / 10000f)
         }
         
         // AudioAnalyzer.Listener
@@ -194,6 +212,24 @@ class AuraWallpaperService : WallpaperService() {
             fractalRenderer.setAudioEnergy(energy)
             // SmartAudioAdapter'a ses verisini ilet (beat detection için)
             smartAudioAdapter.addAudioSample(rms)
+            
+            // Meditasyon sistemi için ses verisini analiz et
+            if (meditationSessionManager.isMeditating.value) {
+                stressEstimator.processAudioData(rms)
+                meditationSessionManager.recordStressLevel(stressEstimator.estimate.value.level)
+                
+                // Adaptif tepki sistemini güncelle
+                adaptiveResponseSystem.update()
+                val adaptiveParams = adaptiveResponseSystem.params.value
+                
+                // Renderer'a adaptif parametreleri uygula
+                fractalRenderer.setColorSaturation(adaptiveParams.colorSaturation)
+                fractalRenderer.setAnimationSpeed(adaptiveParams.animationSpeed)
+                fractalRenderer.setFractalComplexity(adaptiveParams.fractalComplexity)
+                
+                // Ses seviyesini ayarla
+                generativeAudio.setVolume(adaptiveParams.audioVolume)
+            }
         }
         
         // GenerativeAudioEngine.Listener

@@ -121,22 +121,23 @@ class AuraWallpaperService : WallpaperService() {
             super.onSurfaceCreated(holder)
             
             glSurfaceView = GLSurfaceView(this@AuraWallpaperService).apply {
-                setEGLContextClientVersion(2)
+                // OpenGL ES 3.0 kullan
+                setEGLContextClientVersion(3)
+                
+                // RGBA_8888 pixel format
+                holder?.setFormat(android.graphics.PixelFormat.RGBA_8888)
+                
                 setRenderer(fractalRenderer)
                 
                 // FPS limiti ayarla
                 val fps = preferences.fpsLimit
                 if (fps <= 30) {
-                    // Düşük FPS modu - manuel kontrol
                     renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
-                    // İlk render'ı tetikle
                     post { requestRender() }
                 } else {
                     renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
                 }
             }
-            
-            holder?.setFormat(android.graphics.PixelFormat.RGBA_8888)
         }
         
         override fun onSurfaceDestroyed(holder: SurfaceHolder?) {

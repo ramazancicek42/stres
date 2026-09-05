@@ -1,14 +1,13 @@
 package com.aura.livewallpaper.renderer
 
 import android.content.Context
-import android.opengl.GLES20
+import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.Vibrator
 import android.view.MotionEvent
 import com.aura.livewallpaper.audio.GenerativeAudioEngine
 import com.aura.livewallpaper.audio.SmartAudioAdapter
 import com.aura.livewallpaper.util.AuraPreferences
-import com.aura.livewallpaper.util.ColorPalette
 import com.aura.livewallpaper.util.PowerManager
 import com.aura.livewallpaper.util.TimeColorEngine
 import javax.microedition.khronos.egl.EGLConfig
@@ -18,15 +17,21 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Gelişmiş Fraktal Renderer - OpenGL ES ile animasyonlu Julia set render eder
+ * Professional Fraktal Renderer v2.0
  * 
- * Yeni Özellikler:
- * - PowerManager entegrasyonu (dinamik FPS ve kalite ayarı)
- * - TimeColorEngine ile otomatik palet değişimi
- * - TouchInteractionManager ile gelişmiş dokunma etkileşimi
- * - SmartAudioAdapter ile beat-sync pulsasyon
- * - Multi-touch desteği
- * - Hava durumu entegrasyonu hazırlığı
+ * Multi-fraktal sistemi:
+ * - Julia Set (klasik)
+ * - Burning Ship (agresif)
+ * - Mandelbrot (keşif)
+ * - Flow Field (akış)
+ * - Reaction-Diffusion (organik)
+ * 
+ * Ek özellikler:
+ * - Multi-octave noise
+ * - Domain warping (gelişmiş)
+ * - Smooth coloring (yüksek kalite)
+ * - Professional vignette
+ * - Film grain
  */
 class FractalRenderer(
     private val context: Context,
@@ -57,6 +62,9 @@ class FractalRenderer(
     private var uAspectRatioLocation = -1
     private var uComplexityLocation = -1
     private var uFrozenLocation = -1
+    private var uFractalTypeLocation = -1
+    private var uZoomLocation = -1
+    private var uPanOffsetLocation = -1
 
     // State
     private var startTime = 0L
@@ -81,9 +89,15 @@ class FractalRenderer(
     private var rippleY = -1f
     private var rippleRadius = 0f
     private var rippleAlpha = 0f
+    
+    // Yeni parametreler
+    private var fractalType = 0 // 0: Julia, 1: Burning Ship, 2: Mandelbrot, 3: Flow Field, 4: Reaction-Diffusion
+    private var zoomLevel = 1.0f
+    private var panOffsetX = 0f
+    private var panOffsetY = 0f
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        GLES30.glClearColor(0f, 0f, 0f, 1f)
 
         fullScreenQuad = FullScreenQuad()
         fullScreenQuad?.createProgram(VERTEX_SHADER, FRACTAL_FRAGMENT_SHADER)
@@ -103,6 +117,9 @@ class FractalRenderer(
         uAspectRatioLocation = fullScreenQuad?.getUniformLocation("uAspectRatio") ?: -1
         uComplexityLocation = fullScreenQuad?.getUniformLocation("uComplexity") ?: -1
         uFrozenLocation = fullScreenQuad?.getUniformLocation("uFrozen") ?: -1
+        uFractalTypeLocation = fullScreenQuad?.getUniformLocation("uFractalType") ?: -1
+        uZoomLocation = fullScreenQuad?.getUniformLocation("uZoom") ?: -1
+        uPanOffsetLocation = fullScreenQuad?.getUniformLocation("uPanOffset") ?: -1
 
         startTime = System.currentTimeMillis()
         currentPaletteIndex = preferences.colorPaletteIndex
@@ -125,7 +142,7 @@ class FractalRenderer(
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         this.width = width
         this.height = height
-        GLES20.glViewport(0, 0, width, height)
+        GLES30.glViewport(0, 0, width, height)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -137,7 +154,7 @@ class FractalRenderer(
             return
         }
 
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
 
         fullScreenQuad?.useProgram()
 
@@ -163,26 +180,29 @@ class FractalRenderer(
         // Ripple güncelleme
         updateRipple(currentTime)
 
-        // Uniform'lari ayarla
-        GLES20.glUniform1f(uTimeLocation, currentTime)
-        GLES20.glUniform1f(uLightLevelLocation, lightLevel)
-        GLES20.glUniform1f(uAudioEnergyLocation, audioEnergy * profile.renderScale)
-        GLES20.glUniform1f(uBeatSyncLocation, beatSyncSignal)
-        GLES20.glUniform2f(uTouchPosLocation, touchX, touchY)
-        GLES20.glUniform1f(uTouchIntensityLocation, decayedTouchIntensity * profile.renderScale)
-        GLES20.glUniform3f(uRippleLocation, rippleX, rippleY, rippleAlpha)
-        GLES20.glUniform1f(uComplexityLocation, fractalComplexity * profile.renderScale)
-        GLES20.glUniform1i(uFrozenLocation, if (isFrozen) 1 else 0)
-
         // Aspect ratio (sifira bolme hatasini onle)
         val aspectRatio = if (width > 0 && height > 0) width.toFloat() / height else 1f
-        GLES20.glUniform1f(uAspectRatioLocation, aspectRatio)
+
+        // Uniform'lari ayarla
+        GLES30.glUniform1f(uTimeLocation, currentTime)
+        GLES30.glUniform1f(uLightLevelLocation, lightLevel)
+        GLES30.glUniform1f(uAudioEnergyLocation, audioEnergy * profile.renderScale)
+        GLES30.glUniform1f(uBeatSyncLocation, beatSyncSignal)
+        GLES30.glUniform2f(uTouchPosLocation, touchX, touchY)
+        GLES30.glUniform1f(uTouchIntensityLocation, decayedTouchIntensity * profile.renderScale)
+        GLES30.glUniform4f(uRippleLocation, rippleX, rippleY, rippleRadius, rippleAlpha)
+        GLES30.glUniform1f(uComplexityLocation, fractalComplexity * profile.renderScale)
+        GLES30.glUniform1i(uFrozenLocation, if (isFrozen) 1 else 0)
+        GLES30.glUniform1f(uAspectRatioLocation, aspectRatio)
+        GLES30.glUniform1i(uFractalTypeLocation, fractalType)
+        GLES30.glUniform1f(uZoomLocation, zoomLevel)
+        GLES30.glUniform2f(uPanOffsetLocation, panOffsetX, panOffsetY)
 
         // Renk paleti
         val colors = getCurrentPaletteColors()
-        GLES20.glUniform3fv(uColorDarkLocation, 1, colors, 0)
-        GLES20.glUniform3fv(uColorMidLocation, 1, colors, 3)
-        GLES20.glUniform3fv(uColorLightLocation, 1, colors, 6)
+        GLES30.glUniform3fv(uColorDarkLocation, 1, colors, 0)
+        GLES30.glUniform3fv(uColorMidLocation, 1, colors, 3)
+        GLES30.glUniform3fv(uColorLightLocation, 1, colors, 6)
 
         fullScreenQuad?.draw()
     }
@@ -194,15 +214,13 @@ class FractalRenderer(
         if (!autoPaletteEnabled) return
         
         timeColorEngine?.currentPalette?.value?.let { timePalette ->
-            // Palet indeksini zaman dilimine göre belirle
             val targetIndex = when (timePalette.timeOfDay) {
-                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.MORNING -> 5 // Sunrise
-                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.NOON -> 0    // Ocean
-                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.EVENING -> 1 // Sunset
-                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.NIGHT -> 6   // Cosmic
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.MORNING -> 5
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.NOON -> 0
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.EVENING -> 1
+                com.aura.livewallpaper.util.TimeColorEngine.TimeOfDay.NIGHT -> 3
             }
             
-            // Geçiş ilerlemesine göre paletteojisini güncelle
             if (targetIndex != currentPaletteIndex) {
                 currentPaletteIndex = targetIndex
                 preferences.colorPaletteIndex = targetIndex
@@ -215,15 +233,15 @@ class FractalRenderer(
      */
     private fun getCurrentPaletteColors(): FloatArray {
         return when (val index = currentPaletteIndex % 8) {
-            0 -> colorPalettes[0] // Ocean
-            1 -> colorPalettes[1] // Sunset
-            2 -> colorPalettes[2] // Forest
-            3 -> colorPalettes[3] // Night
-            4 -> colorPalettes[4] // Amber
-            5 -> sunrisePalette   // Sunrise (yeni)
-            6 -> cosmicPalette    // Cosmic (yeni)
-            7 -> neonPalette      // Neon (yeni)
-            else -> colorPalettes[0]
+            0 -> oceanPalette
+            1 -> sunsetPalette
+            2 -> forestPalette
+            3 -> cosmicPalette
+            4 -> amberPalette
+            5 -> sunrisePalette
+            6 -> neonPalette
+            7 -> auroraPalette
+            else -> oceanPalette
         }
     }
 
@@ -240,17 +258,20 @@ class FractalRenderer(
      */
     private fun updateRipple(time: Float) {
         if (rippleAlpha > 0.01f) {
-            rippleRadius += 0.3f // Yayılma hızı
-            rippleAlpha *= 0.95f // Sönümleme
+            rippleRadius += 0.3f
+            rippleAlpha *= 0.94f
             
-            if (rippleRadius > 0.5f || rippleAlpha < 0.01f) {
+            if (rippleRadius > 0.6f || rippleAlpha < 0.01f) {
                 rippleAlpha = 0f
             }
         }
     }
 
+    // ============================================
+    // PUBLIC FONKSİYONLAR
+    // ============================================
+
     fun setLightLevel(lux: Float) {
-        // LUX degerini normalize et (0-10000 -> 0-1)
         this.lightLevel = (lux / 10000f).coerceIn(0f, 1f)
     }
 
@@ -258,22 +279,38 @@ class FractalRenderer(
         this.audioEnergy = energy * preferences.audioSensitivity
     }
     
-    /**
-     * Adaptif renk doygunluğu (meditasyon sistemi için)
-     */
     fun setColorSaturation(saturation: Float) {
         this.colorSaturation = saturation.coerceIn(0f, 2f)
     }
     
-    /**
-     * Adaptif animasyon hızı (meditasyon sistemi için)
-     */
     fun setAnimationSpeed(speed: Float) {
         this.animationSpeed = speed.coerceIn(0f, 2f)
     }
+    
+    /**
+     * Fraktal tipini ayarla
+     * 0: Julia Set, 1: Burning Ship, 2: Mandelbrot, 3: Flow Field, 4: Reaction-Diffusion
+     */
+    fun setFractalType(type: Int) {
+        this.fractalType = type.coerceIn(0, 4)
+    }
+    
+    /**
+     * Zoom seviyesini ayarla
+     */
+    fun setZoom(level: Float) {
+        this.zoomLevel = level.coerceIn(0.1f, 5.0f)
+    }
+    
+    /**
+     * Pan offset ayarla
+     */
+    fun setPanOffset(x: Float, y: Float) {
+        this.panOffsetX = x.coerceIn(-2f, 2f)
+        this.panOffsetY = y.coerceIn(-2f, 2f)
+    }
 
     fun handleTouchEvent(event: MotionEvent): Boolean {
-        // Touch manager varsa ona yönlendir
         if (touchManager != null) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -341,19 +378,12 @@ class FractalRenderer(
         fractalComplexity = complexity.coerceIn(0.5f, 2.0f)
     }
     
-    /**
-     * Erişilebilirlik parametrelerini uygula
-     */
     fun applyAccessibilityParams(params: com.aura.livewallpaper.accessibility.AccessibilityManager.AccessibilityRenderParams) {
         if (params.reduceMotion) {
             fractalComplexity = 0.5f
         }
         if (params.disableFlashing) {
-            // Beat sync efektlerini devre dışı bırak
             beatSyncSignal = 0f
-        }
-        if (params.slowTransitions) {
-            // Geçiş hızını yavaşlat (daha düşük interpolasyon)
         }
     }
 
@@ -365,6 +395,9 @@ class FractalRenderer(
         fractalComplexity = 1.0f
         touchIntensity = 0f
         rippleAlpha = 0f
+        zoomLevel = 1.0f
+        panOffsetX = 0f
+        panOffsetY = 0f
         startTime = System.currentTimeMillis()
     }
 
@@ -374,11 +407,26 @@ class FractalRenderer(
         fullScreenQuad = null
     }
     
-    // Yeni paletler
-    private val sunrisePalette = floatArrayOf(
-        0.10f, 0.10f, 0.18f,
-        1.00f, 0.55f, 0.26f,
-        1.00f, 0.84f, 0.00f
+    // ============================================
+    // PALETLER
+    // ============================================
+    
+    private val oceanPalette = floatArrayOf(
+        0.06f, 0.20f, 0.48f,
+        0.10f, 0.37f, 0.73f,
+        0.29f, 0.56f, 0.85f
+    )
+    
+    private val sunsetPalette = floatArrayOf(
+        0.18f, 0.11f, 0.18f,
+        0.72f, 0.36f, 0.22f,
+        0.96f, 0.64f, 0.38f
+    )
+    
+    private val forestPalette = floatArrayOf(
+        0.06f, 0.16f, 0.12f,
+        0.18f, 0.42f, 0.31f,
+        0.32f, 0.72f, 0.53f
     )
     
     private val cosmicPalette = floatArrayOf(
@@ -387,19 +435,27 @@ class FractalRenderer(
         0.58f, 0.44f, 0.86f
     )
     
+    private val amberPalette = floatArrayOf(
+        0.18f, 0.12f, 0.06f,
+        0.72f, 0.49f, 0.22f,
+        0.96f, 0.77f, 0.38f
+    )
+    
+    private val sunrisePalette = floatArrayOf(
+        0.10f, 0.10f, 0.18f,
+        1.00f, 0.55f, 0.26f,
+        1.00f, 0.84f, 0.00f
+    )
+    
     private val neonPalette = floatArrayOf(
         0.04f, 0.04f, 0.04f,
         0.00f, 1.00f, 1.00f,
         1.00f, 0.00f, 1.00f
     )
     
-    companion object {
-        val colorPalettes = arrayOf(
-            floatArrayOf(0.06f, 0.20f, 0.48f, 0.10f, 0.37f, 0.73f, 0.29f, 0.56f, 0.85f),
-            floatArrayOf(0.18f, 0.11f, 0.18f, 0.72f, 0.36f, 0.22f, 0.96f, 0.64f, 0.38f),
-            floatArrayOf(0.06f, 0.16f, 0.12f, 0.18f, 0.42f, 0.31f, 0.32f, 0.72f, 0.53f),
-            floatArrayOf(0.10f, 0.06f, 0.18f, 0.29f, 0.18f, 0.48f, 0.61f, 0.45f, 0.81f),
-            floatArrayOf(0.18f, 0.12f, 0.06f, 0.72f, 0.49f, 0.22f, 0.96f, 0.77f, 0.38f)
-        )
-    }
+    private val auroraPalette = floatArrayOf(
+        0.02f, 0.05f, 0.10f,
+        0.10f, 0.80f, 0.50f,
+        0.50f, 0.20f, 0.90f
+    )
 }

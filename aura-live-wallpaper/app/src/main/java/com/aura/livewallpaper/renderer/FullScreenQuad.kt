@@ -1,13 +1,13 @@
 package com.aura.livewallpaper.renderer
 
-import android.opengl.GLES20
+import android.opengl.GLES30
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 /**
- * OpenGL ES 2.0/3.0 için basit bir full-screen quad renderer
- * Fraktal shader'ı ekrana uygular
+ * OpenGL ES 3.0 için full-screen quad renderer
+ * Professional fraktal shader'ı ekrana uygular
  */
 class FullScreenQuad {
     
@@ -24,6 +24,8 @@ class FullScreenQuad {
     private val indexBuffer: java.nio.ShortBuffer
     
     private var vertexArrayId = 0
+    private var vertexBufferId = 0
+    private var indexBufferId = 0
     private var vertexAttribLocation = -1
     private var texCoordAttribLocation = -1
     private var programId = 0
@@ -46,79 +48,111 @@ class FullScreenQuad {
     
     fun createProgram(vertexShader: String, fragmentShader: String): Int {
         // Shader'ları derle
-        val vertexShaderId = loadShader(GLES20.GL_VERTEX_SHADER, vertexShader)
-        val fragmentShaderId = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShader)
+        val vertexShaderId = loadShader(GLES30.GL_VERTEX_SHADER, vertexShader)
+        val fragmentShaderId = loadShader(GLES30.GL_FRAGMENT_SHADER, fragmentShader)
         
         // Program oluştur ve shader'ları bağla
-        programId = GLES20.glCreateProgram()
-        GLES20.glAttachShader(programId, vertexShaderId)
-        GLES20.glAttachShader(programId, fragmentShaderId)
-        GLES20.glLinkProgram(programId)
+        programId = GLES30.glCreateProgram()
+        GLES30.glAttachShader(programId, vertexShaderId)
+        GLES30.glAttachShader(programId, fragmentShaderId)
+        GLES30.glLinkProgram(programId)
         
         // Derleme durumunu kontrol et
         val linkStatus = IntArray(1)
-        GLES20.glGetProgramiv(programId, GLES20.GL_LINK_STATUS, linkStatus, 0)
-        if (linkStatus[0] != GLES20.GL_TRUE) {
-            val errorLog = GLES20.glGetProgramInfoLog(programId)
+        GLES30.glGetProgramiv(programId, GLES30.GL_LINK_STATUS, linkStatus, 0)
+        if (linkStatus[0] != GLES30.GL_TRUE) {
+            val errorLog = GLES30.glGetProgramInfoLog(programId)
             throw RuntimeException("Program link hatası: $errorLog")
         }
         
+        // Shader'ları temizle (artık gerek yok)
+        GLES30.glDeleteShader(vertexShaderId)
+        GLES30.glDeleteShader(fragmentShaderId)
+        
+        // VAO ve VBO oluştur
+        val vaos = IntArray(1)
+        GLES30.glGenVertexArrays(1, vaos, 0)
+        vertexArrayId = vaos[0]
+        
+        val vbos = IntArray(2)
+        GLES30.glGenBuffers(2, vbos, 0)
+        vertexBufferId = vbos[0]
+        indexBufferId = vbos[1]
+        
+        // VAO'yu bağla
+        GLES30.glBindVertexArray(vertexArrayId)
+        
+        // Vertex buffer'ı bağla ve veri yükle
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vertexBufferId)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, vertexData.size * 4, vertexBuffer, GLES30.GL_STATIC_DRAW)
+        
+        // Index buffer'ı bağla ve veri yükle
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, indexBufferId)
+        GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER, indexData.size * 2, indexBuffer, GLES30.GL_STATIC_DRAW)
+        
         // Attribute location'ları al
-        vertexAttribLocation = GLES20.glGetAttribLocation(programId, "aPosition")
-        texCoordAttribLocation = GLES20.glGetAttribLocation(programId, "aTexCoord")
+        vertexAttribLocation = GLES30.glGetAttribLocation(programId, "aPosition")
+        texCoordAttribLocation = GLES30.glGetAttribLocation(programId, "aTexCoord")
+        
+        // Vertex attribute ayarları
+        val stride = 4 * 4 // 4 float * 4 bytes
+        
+        // aPosition (location 0)
+        GLES30.glEnableVertexAttribArray(vertexAttribLocation)
+        GLES30.glVertexAttribPointer(vertexAttribLocation, 2, GLES30.GL_FLOAT, false, stride, 0)
+        
+        // aTexCoord (location 1)
+        GLES30.glEnableVertexAttribArray(texCoordAttribLocation)
+        GLES30.glVertexAttribPointer(texCoordAttribLocation, 2, GLES30.GL_FLOAT, false, stride, 2 * 4)
+        
+        // VAO'yu bırak
+        GLES30.glBindVertexArray(0)
         
         return programId
     }
     
     fun useProgram() {
-        GLES20.glUseProgram(programId)
+        GLES30.glUseProgram(programId)
+        GLES30.glBindVertexArray(vertexArrayId)
     }
     
     fun getUniformLocation(name: String): Int {
-        return GLES20.glGetUniformLocation(programId, name)
+        return GLES30.glGetUniformLocation(programId, name)
     }
     
     fun draw() {
-        GLES20.glEnableVertexAttribArray(vertexAttribLocation)
-        GLES20.glEnableVertexAttribArray(texCoordAttribLocation)
-        
-        // Vertex buffer'ı bağla (pozisyon + texcoord interleaved)
-        val stride = 4 * java.lang.Float.SIZE / 8 // 4 float * 4 bytes
-        
-        vertexBuffer.position(0)
-        GLES20.glVertexAttribPointer(vertexAttribLocation, 2, GLES20.GL_FLOAT, false, stride, vertexBuffer)
-        
-        vertexBuffer.position(2)
-        GLES20.glVertexAttribPointer(texCoordAttribLocation, 2, GLES20.GL_FLOAT, false, stride, vertexBuffer)
-        
-        // Draw call
-        GLES20.glDrawElements(GLES20.GL_TRIANGLE_STRIP, indexData.size, GLES20.GL_UNSIGNED_SHORT, indexBuffer)
-        
-        GLES20.glDisableVertexAttribArray(vertexAttribLocation)
-        GLES20.glDisableVertexAttribArray(texCoordAttribLocation)
+        GLES30.glDrawElements(GLES30.GL_TRIANGLE_STRIP, indexData.size, GLES30.GL_UNSIGNED_SHORT, 0)
     }
     
     fun cleanup() {
         if (programId != 0) {
-            GLES20.glDeleteProgram(programId)
+            GLES30.glDeleteProgram(programId)
             programId = 0
         }
         if (vertexArrayId != 0) {
-            GLES20.glDeleteBuffers(1, intArrayOf(vertexArrayId), 0)
+            GLES30.glDeleteVertexArrays(1, intArrayOf(vertexArrayId), 0)
             vertexArrayId = 0
+        }
+        if (vertexBufferId != 0) {
+            GLES30.glDeleteBuffers(1, intArrayOf(vertexBufferId), 0)
+            vertexBufferId = 0
+        }
+        if (indexBufferId != 0) {
+            GLES30.glDeleteBuffers(1, intArrayOf(indexBufferId), 0)
+            indexBufferId = 0
         }
     }
     
     private fun loadShader(type: Int, source: String): Int {
-        val shaderId = GLES20.glCreateShader(type)
-        GLES20.glShaderSource(shaderId, source)
-        GLES20.glCompileShader(shaderId)
+        val shaderId = GLES30.glCreateShader(type)
+        GLES30.glShaderSource(shaderId, source)
+        GLES30.glCompileShader(shaderId)
         
         // Derleme durumunu kontrol et
         val compileStatus = IntArray(1)
-        GLES20.glGetShaderiv(shaderId, GLES20.GL_COMPILE_STATUS, compileStatus, 0)
-        if (compileStatus[0] != GLES20.GL_TRUE) {
-            val errorLog = GLES20.glGetShaderInfoLog(shaderId)
+        GLES30.glGetShaderiv(shaderId, GLES30.GL_COMPILE_STATUS, compileStatus, 0)
+        if (compileStatus[0] != GLES30.GL_TRUE) {
+            val errorLog = GLES30.glGetShaderInfoLog(shaderId)
             throw RuntimeException("Shader derleme hatası: $errorLog")
         }
         

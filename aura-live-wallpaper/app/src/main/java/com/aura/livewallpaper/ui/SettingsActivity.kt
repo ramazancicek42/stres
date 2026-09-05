@@ -403,23 +403,9 @@ fun MeditationSection(
 ) {
     val timeFormatter = remember { SimpleDateFormat("mm:ss", Locale.getDefault()) }
     
-    // Nefes fazı animasyonu
-    var breathPhase by remember { mutableStateOf(BreathingGuide.BreathingPhase.IDLE) }
-    var breathValue by remember { mutableStateOf(0f) }
-    
-    LaunchedEffect(isMeditating) {
-        if (isMeditating) {
-            while (isMeditating) {
-                breathingGuide.update()
-                breathPhase = breathingGuide.getCurrentPhase()
-                breathValue = breathingGuide.getSmoothBreathValue()
-                delay(50) // 20 FPS
-            }
-        } else {
-            breathPhase = BreathingGuide.BreathingPhase.IDLE
-            breathValue = 0f
-        }
-    }
+    // Meditasyon durumları
+    val breathingPhase by sessionManager.breathingPhase.collectAsState()
+    val breathingCycleCount by sessionManager.breathingCycleCount.collectAsState()
     
     // Stres seviyesi rengi
     val stressColor = when {
@@ -460,13 +446,23 @@ fun MeditationSection(
                 color = MaterialTheme.colorScheme.primary
             )
             
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Nefes döngü sayacı
+            if (isMeditating && breathingCycleCount > 0) {
+                Text(
+                    text = "Nefes Döngüsü: $breathingCycleCount",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
             Spacer(modifier = Modifier.height(16.dp))
             
             // Nefes rehberi göstergesi
             if (isMeditating) {
                 BreathingGuideIndicator(
-                    phase = breathPhase,
-                    breathValue = breathValue
+                    phaseText = breathingPhase
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -535,8 +531,7 @@ fun MeditationSection(
 
 @Composable
 fun BreathingGuideIndicator(
-    phase: BreathingGuide.BreathingPhase,
-    breathValue: Float
+    phaseText: String
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "breathing")
     val scale by infiniteTransition.animateFloat(
@@ -562,11 +557,12 @@ fun BreathingGuideIndicator(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = when (phase) {
-                    BreathingGuide.BreathingPhase.INHALE -> "Al"
-                    BreathingGuide.BreathingPhase.HOLD -> "Tut"
-                    BreathingGuide.BreathingPhase.EXHALE -> "Ver"
-                    BreathingGuide.BreathingPhase.IDLE -> "Hazır"
+                text = when {
+                    phaseText.contains("Nefes Al") -> "Al"
+                    phaseText.contains("Tut") -> "Tut"
+                    phaseText.contains("Ver") -> "Ver"
+                    phaseText.contains("Tamamlandı") -> "✓"
+                    else -> "○"
                 },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
@@ -578,13 +574,9 @@ fun BreathingGuideIndicator(
         
         // Nefes fazı açıklaması
         Text(
-            text = when (phase) {
-                BreathingGuide.BreathingPhase.INHALE -> "4 saniye nefes al"
-                BreathingGuide.BreathingPhase.HOLD -> "7 saniye tut"
-                BreathingGuide.BreathingPhase.EXHALE -> "8 saniye ver"
-                BreathingGuide.BreathingPhase.IDLE -> "Başlamak için butona bas"
-            },
-            style = MaterialTheme.typography.bodySmall,
+            text = phaseText,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

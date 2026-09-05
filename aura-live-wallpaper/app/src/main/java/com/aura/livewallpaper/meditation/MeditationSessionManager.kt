@@ -2,6 +2,7 @@ package com.aura.livewallpaper.meditation
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,13 +13,16 @@ import java.util.Calendar
  * 
  * Özellikler:
  * - Seans başlat/durdur
- * - Süre takibi
+ * - Otomatik süre sayacı (her saniye güncellenir)
+ * - Nefes rehberi senkronizasyonu
  * - Seans geçmişi kaydetme
  * - İstatistikler
  */
 class MeditationSessionManager(private val context: Context) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences("aura_meditation", Context.MODE_PRIVATE)
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var timerJob: Job? = null
     
     data class MeditationSession(
         val startTime: Long,
@@ -78,6 +82,13 @@ class MeditationSessionManager(private val context: Context) {
     ))
     val stats: StateFlow<MeditationStats> = _stats.asStateFlow()
     
+    // Nefes durumu
+    private val _breathingPhase = MutableStateFlow("Hazır")
+    val breathingPhase: StateFlow<String> = _breathingPhase.asStateFlow()
+    
+    private val _breathingCycleCount = MutableStateFlow(0)
+    val breathingCycleCount: StateFlow<Int> = _breathingCycleCount.asStateFlow()
+    
     private val _stressHistory = mutableListOf<Float>()
     private val _lightHistory = mutableListOf<Float>()
     private var breathingCycles = 0
@@ -107,6 +118,18 @@ class MeditationSessionManager(private val context: Context) {
         _stressHistory.clear()
         _lightHistory.clear()
         breathingCycles = 0
+        _breathingCycleCount.value = 0
+        
+        // Timer'ı başlat - her saniye süreyi güncelle
+        timerJob = scope.launch {
+            while (isActive && _isMeditating.value) {
+                delay(1000) // Her saniye
+                updateElapsedTime()
+            }
+        }
+        
+        // Nefes rehberini başlat
+        startBreathingGuide()
     }
     
     /**
@@ -114,6 +137,10 @@ class MeditationSessionManager(private val context: Context) {
      */
     fun stopSession(): MeditationSession? {
         if (!_isMeditating.value) return null
+        
+        // Timer'ı durdur
+        timerJob?.cancel()
+        timerJob = null
         
         val endTime = System.currentTimeMillis()
         val duration = endTime - sessionStartTime
@@ -137,6 +164,7 @@ class MeditationSessionManager(private val context: Context) {
         
         _currentSession.value = session
         _isMeditating.value = false
+        _breathingPhase.value = "Tamamlandı"
         
         // Geçmişe kaydet
         saveSession(session)
@@ -147,6 +175,47 @@ class MeditationSessionManager(private val context: Context) {
         _stats.value = getStats()
         
         return session
+    }
+    
+    /**
+     * Nefes rehberini başlat (4-7-8 tekniği)
+     */
+    private fun startBreathingGuide() {
+        scope.launch {
+            while (isActive && _isMeditating.value) {
+                // 4 saniye nefes al
+                _breathingPhase.value = "Nefes Al (4)"
+                for (i in 4 downTo 1) {
+                    if (!_isMeditating.value) return@launch
+                    _breathingPhase.value = "Nefes Al ($i)"
+                    delay(1000)
+                }
+                
+                if (!_isMeditating.value) return@launch
+                
+                // 7 saniye tut
+                _breathingPhase.value = "Tut (7)"
+                for (i in 7 downTo 1) {
+                    if (!_isMeditating.value) return@launch
+                    _breathingPhase.value = "Tut ($i)"
+                    delay(1000)
+                }
+                
+                if (!_isMeditating.value) return@launch
+                
+                // 8 saniye ver
+                _breathingPhase.value = "Ver (8)"
+                for (i in 8 downTo 1) {
+                    if (!_isMeditating.value) return@launch
+                    _breathingPhase.value = "Ver ($i)"
+                    delay(1000)
+                }
+                
+                // Nefes döngüsü tamamlandı
+                breathingCycles++
+                _breathingCycleCount.value = breathingCycles
+            }
+        }
     }
     
     /**
@@ -174,6 +243,7 @@ class MeditationSessionManager(private val context: Context) {
     fun recordBreathingCycle() {
         if (_isMeditating.value) {
             breathingCycles++
+            _breathingCycleCount.value = breathingCycles
         }
     }
     

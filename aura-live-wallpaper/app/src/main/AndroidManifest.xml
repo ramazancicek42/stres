@@ -49,6 +49,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Meditasyon Geçmişi Aktivitesi -->
+        <activity
+            android:name=".meditation.SessionHistoryActivity"
+            android:exported="false"
+            android:label="Meditasyon Geçmişi"
+            android:theme="@style/Theme.AuraLiveWallpaper" />
+
         <!-- Widget Provider -->
         <receiver
             android:name=".widget.AuraWidgetProvider"
